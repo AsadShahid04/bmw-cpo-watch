@@ -7,36 +7,34 @@ new matches.
 ## A run, step by step
 
 ```mermaid
-sequenceDiagram
-    participant R as bmwcpo.run
-    participant A as bmwcpo.auth
-    participant F as data/auth.txt
-    participant T as www.bmwusa.com/token/cpo/
-    participant V as inventoryservices.bmwdealerprograms.com/vehicle
-    participant D as data/bmwcpo.sqlite
+flowchart TD
+    start(["python -m bmwcpo.run"]) --> env{"BMW_AUTH env var set?"}
+    env -- yes --> page
+    env -- no --> cached{"data/auth.txt has a token<br/>valid for more than 10 min?"}
+    cached -- yes --> page
+    cached -- no --> fetch["POST www.bmwusa.com/token/cpo/<br/>with BMW's public client credential"]
+    fetch --> ok{"HTTP 200 and a valid JWT?"}
+    ok -- no --> fail(["Stop with an error,<br/>e.g. token endpoint returned HTTP 401"])
+    ok -- yes --> save["Save Bearer token to data/auth.txt<br/>(mode 600, lasts 24 h)"]
+    save --> page
 
-    R->>A: ensure(cfg)
-    A->>F: read cached token, decode its expiry
-    alt still valid for > 10 min
-        F-->>A: reuse it
-    else missing or expiring
-        A->>T: POST (client credential from bmwusa.com's JS)
-        T-->>A: { access_token (24 h JWT), expires }
-        A->>F: save "Bearer <token>" (mode 600)
-    end
-    loop pages of 100 (offset 0, 100, 200, ...)
-        R->>D: cached response < 1 h old?
-        R->>V: POST search body + Authorization
-        V-->>R: { vehicles: [...] }
-        R->>D: cache raw response
-    end
-    R->>R: normalize fields, match filters
-    R->>D: upsert listings, price history, mark sold ones inactive
-    R-->>R: print counts + NEW MATCH lines
+    page["Next page of 100<br/>(offset 0, 100, 200, ...)"] --> hit{"Same page cached<br/>in the last hour?"}
+    hit -- yes --> norm
+    hit -- no --> api["POST inventoryservices.bmwdealerprograms.com/vehicle"]
+    api --> rejected{"401 or 403?"}
+    rejected -- "yes, first time" --> retry["Fetch a new token,<br/>retry this page once"]
+    retry --> api
+    rejected -- "yes, again" --> fail
+    rejected -- no --> store["Cache the raw response,<br/>wait 1.5 to 4 s"]
+    store --> norm["Normalize each vehicle"]
+    norm --> match{"3 Series + wanted color<br/>+ options 337 and 5AU?"}
+    match -- "yes: is_match = 1" --> upsert["Save to listings<br/>and price_history"]
+    match -- "no: is_match = 0" --> upsert
+    upsert --> more{"Got a full page of 100?"}
+    more -- yes --> page
+    more -- no --> sold["Mark VINs not seen this run<br/>as inactive (sold)"]
+    sold --> done(["Print counts + NEW MATCH lines"])
 ```
-
-If the inventory API rejects the token with 401/403 before its stated expiry, the client fetches
-a new token and retries that page once.
 
 ## The API token
 
