@@ -1,13 +1,12 @@
 """Config-driven HTTP client + response normalizer.
 
 Everything specific to BMW's API (URL, payload shape, JSON paths) lives in
-config.toml so that once the real request is captured, no code changes are needed.
+config.toml; the Authorization token comes from bmwcpo.auth.
 """
 
 from __future__ import annotations
 
 import json
-import os
 import random
 import sqlite3
 import time
@@ -15,7 +14,7 @@ from typing import Any, Iterator
 
 import requests
 
-from . import db
+from . import auth, db
 
 DEFAULT_HEADERS = {
     "User-Agent": (
@@ -78,27 +77,16 @@ def fetch_pages(cfg: dict[str, Any], conn: sqlite3.Connection) -> Iterator[dict[
     sess = requests.Session()
     sess.headers.update(DEFAULT_HEADERS)
     sess.headers.update(api.get("headers", {}))
-    # The inventory API requires an Authorization header. Supply it via env var (preferred)
-    # or a git-ignored file; never commit it.
-    token = os.environ.get(api.get("auth_env", "BMW_AUTH"))
-    if not token and api.get("auth_file"):
+    # The inventory API requires an Authorization header. auth.ensure() uses BMW_AUTH,
+    # else data/auth.txt if still valid, else fetches a fresh token (see docs/how-it-works.md).
+    token_source = None
+    if api.get("auth_required", True):
         try:
-            token = open(api["auth_file"]).read().strip()
-        except FileNotFoundError:
-            token = None
-    if api.get("auth_required", True) and not token:
-        raise SystemExit(
-            "No Authorization value found. Set the BMW_AUTH env var or put it in "
-            f"{api.get('auth_file', 'data/auth.txt')} (see README)."
-        )
-    if token:
+            token, token_source = auth.ensure(cfg)
+        except auth.AuthError as e:
+            raise SystemExit(f"error: {e}") from None
         sess.headers["Authorization"] = token
-    if cfg.get("cookies_file"):
-        # Optional: paste a Cookie header value into this file if the API needs a session.
-        try:
-            sess.headers["Cookie"] = open(cfg["cookies_file"]).read().strip()
-        except FileNotFoundError:
-            pass
+    retried_auth = False
 
     page = api.get("page_start", 0)
     page_size = api.get("page_size", 50)
@@ -119,6 +107,22 @@ def fetch_pages(cfg: dict[str, Any], conn: sqlite3.Connection) -> Iterator[dict[
                 api.get("method", "GET"), api["url"], params=params or None,
                 json=body, timeout=30,
             )
+            if (
+                resp.status_code in (401, 403)
+                and token_source in ("file", "fetched")
+                and not retried_auth
+                and cfg.get("token", {}).get("auto_refresh", True)
+            ):
+                # Token rejected before its stated expiry: fetch a new one and retry once.
+                retried_auth = True
+                try:
+                    sess.headers["Authorization"] = auth.refresh(cfg)
+                except auth.AuthError as e:
+                    raise SystemExit(f"error: API returned {resp.status_code}; {e}") from None
+                resp = sess.request(
+                    api.get("method", "GET"), api["url"], params=params or None,
+                    json=body, timeout=30,
+                )
             resp.raise_for_status()
             text = resp.text
             db.cache_put(conn, key, api["url"], text)

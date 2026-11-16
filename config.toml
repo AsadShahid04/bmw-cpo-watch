@@ -15,8 +15,8 @@ page_start = 0
 page_size = 100      # 100 verified to work
 max_pages = 30
 results_path = "vehicles"
-auth_env = "BMW_AUTH"            # Authorization header value (env var) ...
-auth_file = "data/auth.txt"      # ... or this git-ignored file
+auth_env = "BMW_AUTH"            # optional override: Authorization value in an env var
+auth_file = "data/auth.txt"      # cached token (git-ignored, mode 600), managed by bmwcpo.auth
 
 # NOTE: the API's `pageIndex` behaves as an ITEM OFFSET (0, 100, 200, ...), not a page number.
 # Stepping it by page_size returned all 1078 nationwide CPO 3 Series with no duplicates.
@@ -34,6 +34,15 @@ filters = [
   { name = "Series", values = ["3 Series"] },
   { name = "Type", values = ["cpo"] },
 ]
+
+# Token: fetched the same way bmwusa.com's own CPO page does (see docs/how-it-works.md).
+# client_auth is a fixed credential shipped in bmwusa.com's public JS bundle (same for every
+# visitor; not a personal secret). If BMW rotates it, the token request returns 401.
+[token]
+url = "https://www.bmwusa.com/token/cpo/"
+client_auth = "Basic Ym13dXNhOldoc21CTVdVU0E="
+auto_refresh = true
+refresh_margin_seconds = 600     # refresh when < 10 min of validity is left (tokens last 24 h)
 
 [api.headers]
 Content-Type = "application/json"

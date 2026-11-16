@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Draft launchd agent: runs scripts/daily.sh once a day at 9:17 am.
+     Install:   cp scripts/com.asadshahid.bmwcpo-watch.plist ~/Library/LaunchAgents/ &&
+                launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.asadshahid.bmwcpo-watch.plist
+     Uninstall: launchctl bootout gui/$(id -u)/com.asadshahid.bmwcpo-watch &&
+                rm ~/Library/LaunchAgents/com.asadshahid.bmwcpo-watch.plist -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.asadshahid.bmwcpo-watch</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/asadshahid/Desktop/CodingFiles/bmw-cpo-watch/scripts/daily.sh</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>17</integer>
+    </dict>
+    <key>StandardErrorPath</key>
+    <string>/Users/asadshahid/Desktop/CodingFiles/bmw-cpo-watch/data/launchd.err</string>
+</dict>
+</plist>
