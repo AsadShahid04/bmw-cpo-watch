@@ -10,6 +10,9 @@ Reference:
          exactly the cars with 337 (158 of 1,078 CPO 3 Series on 2026-11-15).
 - 5AU  = Driving Assistant Professional (package ZDY). NO API filter exists for it.
 - 5AS  = Driving Assistant (the basic one).
+- 6U3  = "BMW Curved Display with HUD": the usual Head-up Display code (677 of 1,078 cars;
+         8 older cars describe 6U3 as Live Cockpit Pro). 610 = standalone HUD (only 3 cars),
+         and it's the ONLY code the API's Option "Head-up Display" filter matches.
 - C4P  = Brooklyn Grey Metallic, C31 = Portimao Blue Metallic. C1M is Phytonic Blue, NOT Portimao.
 
 What to look for is configured per search in config.toml ([searches.match]).

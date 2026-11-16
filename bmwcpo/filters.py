@@ -41,6 +41,8 @@ def failed_rules(listing: dict[str, Any], rules: dict[str, Any]) -> list[str]:
     for code in rules.get("required_codes", []):
         if not has_code(listing, code):
             failed.append(f"required_codes:{code}")
+    if rules.get("any_codes") and not any(has_code(listing, c) for c in rules["any_codes"]):
+        failed.append("any_codes")
     if rules.get("colors") and color_match(listing, rules["colors"]) is None:
         failed.append("colors")
     if rules.get("models"):

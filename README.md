@@ -1,17 +1,17 @@
 # bmw-cpo-watch
 
 Watches BMW USA Certified Pre-Owned inventory for the cars you describe in
-[`config.toml`](config.toml) and alerts on what changes. The default search is a G20 3 Series
-with:
+[`config.toml`](config.toml) and alerts on what changes. Two searches run by default:
 
-- M Sport Package (option 337)
-- Driving Assistant Professional (option 5AU)
-- Brooklyn Grey Metallic or Portimao Blue Metallic
+| Search | Wants | Requests |
+|---|---|---|
+| `g20-msport-dap-pro` | 3 Series with M Sport (337) + Driving Assistant Professional (5AU), Brooklyn Grey or Portimao Blue | 1 (filtered on BMW's side) |
+| `dap-pro-hud` | any CPO 3 Series with Driving Assistant Professional (5AU) + Head-up Display (6U3/610), any color | ~11 (nationwide scan) |
 
-You can run several searches at once. Each run reports **new matches**, **price drops**, **sold
-cars** and **health problems**, as text and as `data/last_run.json` for an agent to act on. It
-fetches its own API token, so no browser is needed, and it filters on BMW's side, so a typical
-run is **1 request**.
+Add your own in `config.toml`, or in a git-ignored `config.local.toml`. Each run reports **new
+matches**, **price drops**, **sold cars** and **health problems**, as text and as
+`data/last_run.json` for an agent to act on. It fetches its own API token, so no browser is
+needed.
 
 ## Quick start
 
@@ -22,7 +22,8 @@ run is **1 request**.
     python -m bmwcpo.run                # real run
 
     [g20-msport-dap-pro] 79 cars, 1 request(s), 5 matches (0 new, 0 price drops, 0 gone)
-    status=ok requests=1 alerts=0
+    [dap-pro-hud] 1081 cars, 11 request(s), 49 matches (0 new, 1 price drops, 0 gone)
+    status=ok requests=12 alerts=1
 
 ## Docs
 

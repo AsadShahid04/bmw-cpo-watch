@@ -55,10 +55,16 @@ Each `[[searches]]` block in `config.toml` has:
 - **`match`**, checked locally on each car: option codes, paint names, price, miles, distance
   and year limits.
 
-The default search filters on 3 Series, CPO, M Sport Package and Blue/Gray on BMW's side. It
-then checks Driving Assistant Professional (code 5AU) and the exact paints locally, because the
-API can't filter those. That takes **1 request** instead of 11. Full guide, including every
-filter value and how values combine: [searches.md](searches.md).
+There are two default searches:
+- **`g20-msport-dap-pro`** filters on 3 Series, CPO, M Sport Package and Blue/Gray on BMW's
+  side. It then checks Driving Assistant Professional (5AU) and the exact paints locally.
+  That's **1 request**.
+- **`dap-pro-hud`** wants DAP Pro plus a Head-up Display in any color. Neither can be filtered
+  on BMW's side (HUD is code 6U3, and the API's HUD filter only knows the rare 610), so it scans
+  every CPO 3 Series. That's **about 11 requests**.
+
+Machine-specific changes go in a git-ignored `config.local.toml` that's merged on top. Full
+guide, including every filter value and how values combine: [searches.md](searches.md).
 
 ## Alerts
 

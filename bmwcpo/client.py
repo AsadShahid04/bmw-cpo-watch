@@ -56,10 +56,14 @@ def get_path(obj: Any, path: str) -> Any:
     return cur[0]
 
 
-def normalize(raw: dict[str, Any], fields: dict[str, str]) -> dict[str, Any]:
+def normalize(raw: dict[str, Any], fields: dict[str, Any]) -> dict[str, Any]:
+    """Map raw API fields to our names. A list of paths means "first non-empty one"."""
     out: dict[str, Any] = {"raw": raw}
     for name, path in fields.items():
-        out[name] = get_path(raw, path)
+        if isinstance(path, list):
+            out[name] = next((v for v in (get_path(raw, p) for p in path) if v not in (None, "")), None)
+        else:
+            out[name] = get_path(raw, path)
     for list_key in ("option_codes", "option_names"):
         v = out.get(list_key)
         if isinstance(v, str):  # the BMW API returns pipe-delimited strings

@@ -1,7 +1,8 @@
 # Searches and filters
 
-Everything you'd tune lives in [`config.toml`](../config.toml). Each `[[searches]]` block is
-one saved search, and every search with `enabled = true` runs on each run.
+Everything you'd tune lives in [`config.toml`](../config.toml), plus an optional, git-ignored
+`config.local.toml` for one machine's changes (see below). Each `[[searches]]` block is one saved
+search, and every search with `enabled = true` runs on each run.
 
 ## How a search works
 
@@ -36,6 +37,26 @@ colors = ["Brooklyn Grey", "Portimao Blue"]
 - `ExteriorColor` only knows broad colors (Blue, Gray, ...). It cuts the list down, and
   `colors` then checks the exact paint names.
 - Result: 79 cars in 1 request instead of 1,078 cars in 11, with the same 5 matches.
+
+The second default search, `dap-pro-hud`, can't be narrowed on BMW's side. It wants
+Driving Assistant Professional **and** a Head-up Display in any color, and neither has a
+usable filter (see the HUD pitfall below). So it pulls every CPO 3 Series (about 11 requests)
+and checks the codes locally:
+
+```toml
+filters = { Series = ["3 Series"], Type = ["CPO"] }
+[searches.match]
+required_codes = ["5AU"]
+any_codes = ["6U3", "610"]
+```
+
+### HUD pitfall: don't use `Option = ["Head-up Display"]`
+
+That filter matches only code **610**, and just 3 of 1,078 CPO 3 Series had it (2026-11-16). On
+these cars the HUD normally comes with code **6U3**. BMW's own description of 6U3 is "BMW Curved
+Display with HUD" on 652 of 677 cars and "BMW Head Up Display" on 5 more. On 8 older cars,
+6U3 is described as "Live Cockpit Pro (incl. Navi)", which doesn't guarantee a HUD. Check the
+window sticker. Use `any_codes = ["6U3", "610"]` instead. Muse found this from live data.
 
 ## Filter reference (API side)
 
@@ -93,6 +114,7 @@ Every rule you set must pass. Leave a rule out to skip it.
 | Rule | Type | Passes when |
 |---|---|---|
 | `required_codes` | list | the car has **all** these option codes (`337`, `5AU`, `ZDY`...; padding like `0337` is handled) |
+| `any_codes` | list | the car has **at least one** of these codes (e.g. HUD: `["6U3", "610"]`) |
 | `colors` | list | the paint name contains **any** of these (accents and grey/gray don't matter) |
 | `models` | list | the model contains **any** of these (`"330e"`, `"xDrive"`) |
 | `max_price` | number | price ≤ this |
@@ -114,17 +136,51 @@ Option codes, checked against the API's own code descriptions (`allCodes` / `all
 | ZPP | Premium Package |
 | 322 | Comfort Access keyless entry |
 | 688 | Harman Kardon surround sound system |
-| 610 | Head-up Display |
-| 6U3 | BMW Curved Display with HUD |
+| 6U3 | BMW Curved Display with HUD: the usual HUD code (677 cars); see the HUD pitfall above |
+| 610 | Head-up Display, standalone (only 3 cars) |
 | 302 | Alarm System |
 
 To see one car's codes:
 `sqlite3 data/bmwcpo.sqlite "select option_codes from listings where vin='<VIN>'"`.
 
+## Machine-specific changes: `config.local.toml`
+
+`config.toml` is shared through GitHub. For changes that only one machine or agent should
+have, create **`config.local.toml`** next to it. It's git-ignored and merged on top of
+`config.toml`, so `git pull` never conflicts with it:
+
+```toml
+# config.local.toml
+[alerts]
+min_price_drop = 500                  # override one setting
+
+[[searches]]                          # same name: only the keys you set change
+name = "g20-msport-dap-pro"
+enabled = false                       # e.g. turn a shared search off here
+
+[[searches]]
+name = "dap-pro-hud"
+radius = 600                          # keep its filters, change the radius...
+[searches.match]                      # ...and replace its match rules whole
+required_codes = ["5AU"]
+any_codes = ["6U3", "610"]
+max_price = 45000
+
+[[searches]]                          # new name: added
+name = "my-extra-search"
+zip = "94704"
+radius = 100
+filters = { Series = ["X3"], Type = ["CPO"] }
+```
+
+A `match` or `filters` table in the local file replaces that whole table, so repeat every rule
+you want to keep. `--dry-run` shows when local overrides are applied.
+
 ## Adding a search
 
 1. Copy the example `m340i-west` block, give it a new `name` (letters, digits, `-`, `_`), and
-   set `enabled = true`.
+   set `enabled = true`. Put it in `config.toml` to share it, or in `config.local.toml` to
+   keep it on one machine.
 2. Check it with no network: `python -m bmwcpo.run --dry-run`. A typo in a rule name is an
    error, and an unknown filter name is a warning.
 3. Look at real counts: `python -m bmwcpo.facets --search <name>`.

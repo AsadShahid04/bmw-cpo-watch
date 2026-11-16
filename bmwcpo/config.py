@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import tomllib
+from pathlib import Path
 from typing import Any
 
 # Facet names the inventory API reported (Nov 2026). Others may work; they produce a warning.
@@ -17,7 +18,7 @@ KNOWN_FILTERS = {
     "HasVdpUrl", "HighwayMpg", "InteriorColor", "Model", "Odometer", "Option", "Price",
     "Series", "Transmission", "Type", "Upholstery", "Year",
 }
-MATCH_LIST_KEYS = {"required_codes", "colors", "models"}
+MATCH_LIST_KEYS = {"required_codes", "any_codes", "colors", "models"}
 MATCH_NUM_KEYS = {"max_price", "max_miles", "max_distance", "min_year", "max_year"}
 BODY_DEFAULTS = {
     "formatResponse": False, "includeFacets": False,
@@ -30,9 +31,45 @@ class ConfigError(ValueError):
     pass
 
 
-def load(path: str = "config.toml") -> dict[str, Any]:
+def local_path(path: str) -> Path:
+    """config.toml -> config.local.toml (git-ignored, machine-specific overrides)."""
+    p = Path(path)
+    return p.with_name(f"{p.stem}.local{p.suffix}")
+
+
+def _merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:
+    out = dict(base)
+    for key, val in over.items():
+        if key == "searches" and isinstance(val, list):
+            # Same name -> the keys set locally override the shared search's keys
+            # (a local `match` or `filters` table replaces the shared one whole).
+            # New name -> added.
+            merged = {s.get("name"): s for s in base.get("searches", [])}
+            for s in val:
+                merged[s.get("name")] = {**merged.get(s.get("name"), {}), **s}
+            out["searches"] = list(merged.values())
+        elif isinstance(val, dict) and isinstance(base.get(key), dict):
+            out[key] = _merge(base[key], val)
+        else:
+            out[key] = val
+    return out
+
+
+def load(path: str = "config.toml", *, local: bool = True) -> dict[str, Any]:
+    """Load config.toml, then apply config.local.toml on top if it exists (and local=True).
+
+    Put machine- or agent-specific changes in config.local.toml so `git pull` never
+    conflicts with them. A [[searches]] entry there with the same name overrides just the
+    keys it sets (e.g. only `enabled = false`); a new name adds a search.
+    """
     with open(path, "rb") as f:
-        return tomllib.load(f)
+        cfg = tomllib.load(f)
+    lp = local_path(path)
+    if local and lp.exists():
+        with open(lp, "rb") as f:
+            cfg = _merge(cfg, tomllib.load(f))
+        cfg["_local_config"] = str(lp)
+    return cfg
 
 
 def searches(cfg: dict[str, Any], only: str | None = None) -> list[dict[str, Any]]:

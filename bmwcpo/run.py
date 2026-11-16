@@ -222,6 +222,8 @@ def format_text(report: dict[str, Any]) -> str:
 def dry_run_text(cfg: dict[str, Any], searches: list[dict[str, Any]], warnings: list[str]) -> str:
     api = cfg["api"]
     out = ["DRY RUN: config is valid. No token fetched, no requests sent, nothing written."]
+    if cfg.get("_local_config"):
+        out.append(f"  local overrides applied from {cfg['_local_config']}")
     out.extend(f"  config warning: {w}" for w in warnings)
     for s in searches:
         body = config.build_body(cfg, s, offset=0, page_size=api.get("page_size", 100))

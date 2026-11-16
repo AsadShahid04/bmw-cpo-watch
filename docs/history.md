@@ -54,14 +54,35 @@ Every alert path was checked on real data (a copy of the database with a changed
 removed match and a phantom match). The health paths were checked with the token endpoint
 pointed at localhost (exit 2) and with a search that returns 0 cars (exit 1).
 
+## Muse's first runs (Nov 16)
+
+Running the repo on its own machine, Muse found three things. All are now upstream:
+
+1. **411 Length Required** from the token endpoint on its network: an empty POST lost its
+   `Content-Length: 0`. The token request now sends a 1-byte body, which the server ignores.
+   It was re-tested from the Mac.
+2. **HUD is code 6U3, not 610.** Only 3 of 1,078 cars have 610, and the API's
+   `Option = ["Head-up Display"]` filter only matches 610, so it would find almost nothing.
+   6U3 is described by BMW as "BMW Curved Display with HUD" on 652 of 677 cars. This led to
+   the `any_codes` match rule and the `dap-pro-hud` search (DAP Pro + HUD, any color,
+   nationwide). Its first run on the Mac: 1,081 cars, 11 requests, 49 matches, plus a real
+   $1,000 price drop on a 2027 M3.
+3. Muse had edited files in its clone, which would make every future `git pull` fail. That led
+   to `config.local.toml` (git-ignored, merged on top of `config.toml`) for machine-specific
+   changes.
+
+The same live run showed the API now sends `model: null` for about half the cars, so `model`
+falls back to `trimDescription` and then `modelDescription`.
+
 ## Decisions
 
 - **No browser automation and no evasion.** The token request is the same single call the site
   makes for every visitor.
 - **The token is never printed** in output, logs, reports, errors or git. It exists only in
   `data/auth.txt` or `BMW_AUTH`.
-- **Low volume.** About 1 request per 100 cars per search (1 in total for the default search),
-  with a 1-hour response cache and random 1.5–4 s delays between requests. One or two runs a day.
+- **Low volume.** About 1 request per 100 cars per search (about 12 per run for the two default
+  searches), with a 1-hour response cache and random 1.5–4 s delays between requests. One or two
+  runs a day.
 - **Filter on BMW's side where it's exact; check locally where it isn't.**
 - **Baseline first.** A new search lists its current matches once instead of sending a flood
   of "new" alerts. Suspicious results never mark cars as sold.

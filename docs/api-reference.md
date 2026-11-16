@@ -8,7 +8,7 @@ They're undocumented and can change without notice.
 | | |
 |---|---|
 | Headers | `Accept: application/json`, `Content-Type: application/x-www-form-urlencoded`, `Authorization: Basic <client credential>` (in `config.toml` `[token] client_auth`) |
-| Body | empty |
+| Body | 1 byte (a space), which the server ignores. With an empty body, some clients or proxies drop `Content-Length: 0`, and the server then answers **411 Length Required**. Muse hit this. |
 | Response | JSON with `access_token` (a JWT) and `expires` (when it stops working). The page caches the whole object in `localStorage["access_token"]`. |
 | Lifetime | 24 hours (`exp - iat = 86400` in the JWT) |
 | Used as | `Authorization: Bearer <access_token>` on the inventory call |
@@ -53,7 +53,8 @@ Headers: `Accept`, `Content-Type: application/json`, `Accept-Language`, `Authori
 | API field | Our name | Notes |
 |---|---|---|
 | `vin` | vin | primary key |
-| `year`, `model`, `modelSeries`, `trimDescription` | year, model, series, trim | |
+| `year`, `modelSeries`, `trimDescription` | year, series, trim | |
+| `model` → `trimDescription` → `modelDescription` | model | first non-empty one. `model` was null for about half the cars on 2026-11-16, and about 1% have only `modelDescription` ("3 Series"). |
 | `exterior` | color_name | paint **name** only, e.g. "Portimao Blue Metallic" |
 | `internetPrice` | price | |
 | `odometer` | mileage | |

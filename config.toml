@@ -5,6 +5,10 @@
 #              them with `python -m bmwcpo.facets`). Narrow filters mean fewer requests.
 #   match   -> checked locally on every returned car. Only matching cars trigger alerts.
 # Check your edits with `python -m bmwcpo.run --dry-run` (no network).
+#
+# Machine- or agent-specific changes go in config.local.toml (git-ignored), not here: it is
+# merged on top of this file, so `git pull` never conflicts. A search there with the same
+# name replaces the one here; `enabled = false` turns it off.
 
 cache_ttl_seconds = 3600          # reuse an API page for 1 hour, so reruns don't hit BMW
 delay_range_seconds = [1.5, 4.0]  # random pause between API requests
@@ -38,6 +42,22 @@ colors = ["Brooklyn Grey", "Portimao Blue"]   # paint name must contain one of t
 # max_distance = 600              # miles from zip
 # min_year = 2023
 # max_year = 2025
+
+[[searches]]
+name = "dap-pro-hud"
+description = "Any CPO 3 Series with Driving Assistant Professional + Head-up Display, any color, nationwide"
+enabled = true
+zip = "95391"
+radius = 3000
+# Neither feature has a usable API filter: there is none for DAP Pro (5AU), and the API's
+# "Head-up Display" Option only matches code 610, which just 3 of 1,078 cars carry. On these
+# cars the HUD comes as 6U3 ("BMW Curved Display with HUD"). So this search pulls every CPO
+# 3 Series (~11 requests) and checks the codes locally.
+filters = { Series = ["3 Series"], Type = ["CPO"] }
+
+[searches.match]
+required_codes = ["5AU"]
+any_codes = ["6U3", "610"]        # at least one: HUD via the curved display (6U3) or standalone (610)
 
 # Example second search. Set enabled = true to run it alongside the first one.
 [[searches]]
@@ -87,7 +107,7 @@ Content-Type = "application/json"
 [fields]
 vin = "vin"
 year = "year"
-model = "model"
+model = ["model", "trimDescription", "modelDescription"]   # API often sends model = null
 series = "modelSeries"
 trim = "trimDescription"
 color_name = "exterior"

@@ -29,6 +29,7 @@ import requests
 
 DEFAULT_TOKEN_URL = "https://www.bmwusa.com/token/cpo/"
 DEFAULT_MARGIN_S = 600  # refresh if the token expires within 10 minutes
+TOKEN_BODY = b" "
 
 
 class AuthError(RuntimeError):
@@ -69,8 +70,11 @@ def fetch(cfg: dict[str, Any]) -> str:
     if not client_auth:
         raise AuthError("config [token] client_auth is not set")
     try:
+        # A 1-byte body: some networks/clients drop "Content-Length: 0" on an empty POST and
+        # BMW's server then answers 411 Length Required (seen on Muse's machine). It ignores the body.
         resp = requests.post(
             url,
+            data=TOKEN_BODY,
             headers={
                 "Accept": "application/json",
                 "Content-Type": "application/x-www-form-urlencoded",

@@ -29,10 +29,25 @@ Requirements:
 ## 2. Each run (once a day, at a random minute, not on the hour)
 
 ```bash
-cd bmw-cpo-watch && git pull --ff-only     # pick up Asad's config changes
+cd bmw-cpo-watch && git pull --ff-only     # pick up Asad's changes
 scripts/daily.sh                           # runs every enabled search; appends to data/daily.log
 echo $?                                    # 0 ok, 1 health warning, 2 failed
 ```
+
+**Keep your clone clean so `git pull` always works.** Never edit tracked files (code,
+`config.toml`, docs). Put any search or setting you change in **`config.local.toml`**
+(git-ignored, merged on top of `config.toml`; see [docs/searches.md](docs/searches.md)). If
+`git pull` fails because of local edits:
+
+```bash
+git status --short                 # see what you changed
+git stash                          # set it aside (move any search changes into config.local.toml)
+git pull --ff-only
+```
+
+Changes to code should go to Asad, not stay as a silent local patch. Two local patches from
+Muse's first runs are now upstream, so they should be dropped: the 1-byte body on the token
+POST (the 411 fix) and the DAP Pro + HUD search (`dap-pro-hud`).
 
 Then read **`data/last_run.json`** and send alerts using section 3. Don't parse the text output
 for alerts. The JSON report is the contract.
@@ -86,6 +101,8 @@ Alert Asad about health problems even when the run "worked":
 1. **Exit code 2 or `status: "error"`**: always alert, with the `message`. Common causes:
    - `token endpoint returned HTTP 401/403`: BMW changed its website credential. Asad
      needs to update `[token] client_auth` (docs/operations.md, Troubleshooting).
+   - `token endpoint returned HTTP 411`: the request went out with no body. Check that
+     `bmwcpo/auth.py` still sends `TOKEN_BODY`, and that your clone is up to date.
    - `inventory API rejected the token`: the API changed how it authenticates.
    - `token request failed: ConnectionError`: your machine can't reach BMW.
    - `crashed: ...`: a bug. Include the message.
@@ -108,15 +125,22 @@ Alert Asad about health problems even when the run "worked":
    `BMW_AUTH`. To check it: `.venv/bin/python -m bmwcpo.auth`, which prints only the expiry.
    The report's `token_expires_at` is safe to share.
 2. **Never commit or push `data/`** (token, database, logs). It's git-ignored; keep it that way.
-3. **At most twice a day.** A run is about 1 request per 100 cars per search; today that's
-   1 request in total. Don't lower `cache_ttl_seconds` or `delay_range_seconds`, and don't
-   loop on failures. One retry later in the day is fine.
+3. **At most twice a day.** A run is about 1 request per 100 cars per search. With the two
+   default searches that's about **12 requests per run**: 1 for `g20-msport-dap-pro`
+   (filtered on BMW's side) and about 11 for `dap-pro-hud` (a nationwide scan, because DAP Pro
+   and HUD can't be filtered on BMW's side). Don't lower `cache_ttl_seconds` or
+   `delay_range_seconds`, and don't loop on failures. One retry later in the day is fine.
 4. **No browser automation and no bot-detection workarounds.** If BMW blocks the token or the
    API, stop and alert Asad. The manual fallback (`scripts/save_auth.sh`) needs a person in
    Chrome DevTools.
-5. **Don't change `config.toml` on your own.** If Asad asks for a new search or a different
-   limit, follow [docs/searches.md](docs/searches.md): edit, `--dry-run`, then
-   `--search <name>` once. Tell him what changed.
+5. **Search changes go in `config.local.toml`, and only when Asad asks.** Follow
+   [docs/searches.md](docs/searches.md): edit `config.local.toml`, run `--dry-run`, then
+   `--search <name>` once, and tell him what changed. Know the code quirks, which come from live
+   data:
+   - HUD is code **6U3** (rarely 610). The API's `Option = ["Head-up Display"]` filter only
+     matches 610, so it finds almost nothing. Use `any_codes = ["6U3", "610"]`.
+   - DAP Pro is **5AU** and has no API filter.
+   - M Sport (`Option = ["M Sport Package"]`) is exact.
 6. **Don't "fix" the code on your own** when the API changes. Alert Asad with the exact error
    and what you observed.
 

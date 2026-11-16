@@ -4,14 +4,34 @@ import pytest
 
 from bmwcpo import config
 
-REAL = config.load("config.toml")
+REAL = config.load("config.toml", local=False)
 
 
 def test_repo_config_is_valid_and_clean():
     errors, warnings = config.validate(REAL)
     assert errors == [] and warnings == []
     names = [s["name"] for s in config.searches(REAL)]
-    assert names == ["g20-msport-dap-pro"]  # the example search is disabled
+    assert names == ["g20-msport-dap-pro", "dap-pro-hud"]  # the example search is disabled
+
+
+def test_local_overrides_merge(tmp_path):
+    base = tmp_path / "config.toml"
+    base.write_text(open("config.toml").read())
+    (tmp_path / "config.local.toml").write_text(
+        '[alerts]\nmin_price_drop = 500\n'
+        '[[searches]]\nname = "dap-pro-hud"\nenabled = false\n'
+        '[[searches]]\nname = "g20-msport-dap-pro"\nradius = 600\n'
+        '[[searches]]\nname = "mine"\nzip = "94704"\nradius = 50\nfilters = { Series = ["X3"] }\n'
+    )
+    cfg = config.load(str(base))
+    assert cfg["_local_config"].endswith("config.local.toml")
+    assert cfg["alerts"]["min_price_drop"] == 500
+    assert cfg["health"] == REAL["health"]  # untouched sections kept
+    assert [s["name"] for s in config.searches(cfg)] == ["g20-msport-dap-pro", "mine"]
+    g20 = config.searches(cfg)[0]
+    assert g20["radius"] == 600 and g20["match"]["required_codes"] == ["337", "5AU"]  # rest kept
+    assert config.validate(cfg)[0] == []
+    assert "_local_config" not in config.load(str(base), local=False)
 
 
 def test_only_selects_disabled_search_by_name():

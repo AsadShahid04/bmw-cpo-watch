@@ -9,6 +9,9 @@ Run everything from the repo root. Paths in `config.toml` (`data/...`) are relat
     pytest                                                  # all tests, no network
     python -m bmwcpo.run --dry-run                          # config check, no network
 
+Settings for one machine only go in `config.local.toml` (git-ignored, merged on top of
+`config.toml`). See [searches.md](searches.md#machine-specific-changes-configlocaltoml).
+
 ## Commands
 
 | Command | What it does | Requests to BMW |
@@ -97,6 +100,8 @@ already known.
 | `fetched N of M cars` | More cars than `max_pages × page_size` | Raise `[api] max_pages`, or narrow the filters |
 | `lack option codes, color or price` | The API response shape changed | Check `[fields]` against a raw vehicle in `listings.raw_json` |
 | `token request failed: ConnectionError` | No network, or a proxy blocks bmwusa.com | Check connectivity from that machine |
+| `token endpoint returned HTTP 411` | The token POST went out with no body | Pull the latest code: `auth.py` sends a 1-byte body |
+| `git pull --ff-only` refuses (local changes) | Tracked files were edited on that machine | `git stash`, then pull. Keep machine-specific settings in `config.local.toml`. |
 
 **Manual token fallback:** run `scripts/save_auth.sh`. It opens the CPO page in Chrome, walks
 you through copying the `Authorization` request header from DevTools, and saves it to

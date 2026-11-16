@@ -74,6 +74,14 @@ def test_unknown_values_pass_limits():
     assert matches(car(price=None, mileage=None, dealer_distance=None), {"max_price": 1, "max_miles": 1, "max_distance": 1})
 
 
+def test_any_codes_for_hud():
+    hud = {"required_codes": ["5AU"], "any_codes": ["6U3", "610"]}
+    assert matches(car(option_codes=["05AU", "06U3"]), hud)        # curved display with HUD
+    assert matches(car(option_codes=["05AU", "0610"]), hud)        # standalone HUD
+    assert failed_rules(car(option_codes=["05AU"]), hud) == ["any_codes"]
+    assert failed_rules(car(option_codes=["06U3"]), hud) == ["required_codes:5AU"]
+
+
 def test_models_rule():
     assert matches(car(model="330e"), {"models": ["330e", "M340i"]})
     assert not matches(car(model="330i xDrive"), {"models": ["330e"]})
@@ -88,3 +96,10 @@ def test_get_path_and_normalize():
     assert get_path(raw, "options[].code") == ["S337A", "S5AU"]
     n = normalize(raw, {"vin": "vin", "price": "price", "option_codes": "options[].code", "option_names": "options[].name"})
     assert n["option_codes"] == ["S337A", "S5AU"] and n["price"] == 30000
+
+
+def test_field_fallback_when_model_is_null():
+    fields = {"vin": "vin", "model": ["model", "trimDescription"]}
+    assert normalize({"vin": "V1", "model": None, "trimDescription": "330i"}, fields)["model"] == "330i"
+    assert normalize({"vin": "V1", "model": "330e", "trimDescription": "x"}, fields)["model"] == "330e"
+    assert normalize({"vin": "V1"}, fields)["model"] is None

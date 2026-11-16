@@ -5,7 +5,7 @@ import json
 from bmwcpo import config, db, run
 from bmwcpo.client import FatalError
 
-CFG = config.load("config.toml")
+CFG = config.load("config.toml", local=False)
 SEARCH = {"name": "s", "description": "", "zip": "95391", "radius": 3000,
           "filters": {"Series": ["3 Series"]},
           "match": {"required_codes": ["337", "5AU"], "colors": ["Portimao Blue"]}}
