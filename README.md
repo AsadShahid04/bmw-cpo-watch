@@ -37,7 +37,21 @@ The API requires an `Authorization` header that the site's page adds itself. I c
 record its value, and I do not know how long it stays valid. Get it once from your own browser:
 DevTools > Network > the `vehicle` POST > Request Headers > Authorization, then put the value in
 the `BMW_AUTH` env var or `data/auth.txt` (git-ignored). If requests start returning 401/403, copy a
-fresh one. If it turns out to expire quickly, switch to a Playwright-based token fetch.
+fresh one.
+
+Two helpers are included:
+
+- `scripts/refresh_auth.py` — loads the CPO results page in a headless browser and saves the
+  header to `data/auth.txt` (the value is never printed). **Caveat: this failed twice in a
+  sandboxed VM (Nov 15, 2026) — the search app never fires its inventory POST in a headless
+  browser there, so nothing is captured.** It is most likely to work on a real desktop machine:
+  clone the repo, `python3 -m venv .venv && source .venv/bin/activate`,
+  `pip install -r requirements.txt playwright && python -m playwright install chromium`,
+  then `python scripts/refresh_auth.py`.
+- `scripts/har_extract.py` — finds the inventory call in a HAR export from your own browser
+  (DevTools > Network > right-click > "Save all as HAR with content") and prints the request
+  shape and header *names* (never values); pull the Authorization value out of the HAR yourself
+  and put it in `data/auth.txt`.
 
 ## Status
 
