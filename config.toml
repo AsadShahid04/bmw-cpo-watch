@@ -1,0 +1,56 @@
+# BMW USA CPO inventory API, captured from bmwusa.com/certified-preowned-search (Nov 2026).
+# The request shape below mirrors what the site's own search page sends.
+
+cache_ttl_seconds = 3600
+delay_range_seconds = [1.5, 4.0]
+
+[search]
+zip = "95391"        # Mountain House, CA
+radius = 3000        # miles; 3000 ~= nationwide. Every vehicle carries its distance.
+
+[api]
+url = "https://inventoryservices.bmwdealerprograms.com/vehicle"
+method = "POST"
+page_start = 0
+page_size = 100      # 100 verified to work
+max_pages = 30
+results_path = "vehicles"
+auth_env = "BMW_AUTH"            # Authorization header value (env var) ...
+auth_file = "data/auth.txt"      # ... or this git-ignored file
+
+# NOTE: the API's `pageIndex` behaves as an ITEM OFFSET (0, 100, 200, ...), not a page number.
+# Stepping it by page_size returned all 1078 nationwide CPO 3 Series with no duplicates.
+# Template values: {zip} {radius} {page} {page_size} {offset}
+[api.body]
+pageIndex = "{offset}"
+PageSize = "{page_size}"
+postalCode = "{zip}"
+radius = "{radius}"
+formatResponse = false
+includeFacets = false
+includeDealers = false
+includeVehicles = true
+filters = [
+  { name = "Series", values = ["3 Series"] },
+  { name = "Type", values = ["cpo"] },
+]
+
+[api.headers]
+Content-Type = "application/json"
+
+# Normalized field -> dotted path into each vehicle object.
+# allCodes is a pipe-delimited string with a leading-zero pad ("0337|05AU|...").
+# Paint is only available as a name in `exterior`.
+[fields]
+vin = "vin"
+year = "year"
+model = "model"
+series = "modelSeries"
+trim = "trimDescription"
+color_name = "exterior"
+price = "internetPrice"
+mileage = "odometer"
+dealer = "dealerCode"
+dealer_distance = "distance"
+url = "vdpUrl"
+option_codes = "allCodes"
