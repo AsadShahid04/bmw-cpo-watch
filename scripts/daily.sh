@@ -1,27 +1,24 @@
 #!/bin/bash
-# Daily run for launchd / cron / an agent: runs the watcher (which refreshes the API
-# token itself when needed) and appends to data/daily.log only:
-#   - one line of counts
-#   - any NEW MATCH lines
-#   - a one-line error if it failed
-# Never logs the token. Exit code is the watcher's.
+# Scheduled run for launchd / cron / an agent.
+# Runs every enabled search (the watcher refreshes its own API token), then appends the
+# compact text summary to data/daily.log with a timestamp. The full machine-readable
+# report is always in data/last_run.json. Never logs the token.
+#
+# Exit code is the watcher's: 0 = ok, 1 = finished with health warnings, 2 = failed.
 
 set -uo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PY="$REPO/.venv/bin/python"
 LOG="$REPO/data/daily.log"
-cd "$REPO" || exit 1
+cd "$REPO" || exit 2
 mkdir -p data
 
-ts() { date '+%Y-%m-%d %H:%M'; }
-
+ts="$(date '+%Y-%m-%d %H:%M')"
 out="$("$PY" -m bmwcpo.run 2>&1)"
 code=$?
-if (( code != 0 )); then
-  echo "$(ts) FAILED (exit $code): $(printf '%s' "$out" | tail -1)" >> "$LOG"
-  exit "$code"
-fi
-
-printf '%s\n' "$out" | grep -E '^seen=' | sed "s/^/$(ts) /" >> "$LOG"
-printf '%s\n' "$out" | grep -E 'NEW MATCH' >> "$LOG" || true
+{
+  echo "== $ts exit=$code"
+  printf '%s\n' "$out"
+} >> "$LOG"
+exit "$code"

@@ -1,39 +1,59 @@
-# BMW USA CPO inventory API, captured from bmwusa.com/certified-preowned-search (Nov 2026).
-# The request shape below mirrors what the site's own search page sends.
+# bmw-cpo-watch configuration. Full guide: docs/searches.md
+#
+# Each [[searches]] block is one saved search, and all enabled searches run together.
+#   filters -> sent to BMW's API, so BMW only returns those cars (exact facet values; list
+#              them with `python -m bmwcpo.facets`). Narrow filters mean fewer requests.
+#   match   -> checked locally on every returned car. Only matching cars trigger alerts.
+# Check your edits with `python -m bmwcpo.run --dry-run` (no network).
 
-cache_ttl_seconds = 3600
-delay_range_seconds = [1.5, 4.0]
+cache_ttl_seconds = 3600          # reuse an API page for 1 hour, so reruns don't hit BMW
+delay_range_seconds = [1.5, 4.0]  # random pause between API requests
 
-[search]
-zip = "95391"        # Mountain House, CA
-radius = 3000        # miles; 3000 ~= nationwide. Every vehicle carries its distance.
+[alerts]
+min_price_drop = 1                # dollars; a matching car's price drop of at least this alerts
 
-[api]
-url = "https://inventoryservices.bmwdealerprograms.com/vehicle"
-method = "POST"
-page_start = 0
-page_size = 100      # 100 verified to work
-max_pages = 30
-results_path = "vehicles"
-auth_env = "BMW_AUTH"            # optional override: Authorization value in an env var
-auth_file = "data/auth.txt"      # cached token (git-ignored, mode 600), managed by bmwcpo.auth
+[health]
+max_drop_ratio = 0.5              # warn once if a search returns < 50% of its last count
+max_missing_fields_ratio = 0.5    # warn if > 50% of cars lack option codes, color or price
 
-# NOTE: the API's `pageIndex` behaves as an ITEM OFFSET (0, 100, 200, ...), not a page number.
-# Stepping it by page_size returned all 1078 nationwide CPO 3 Series with no duplicates.
-# Template values: {zip} {radius} {page} {page_size} {offset}
-[api.body]
-pageIndex = "{offset}"
-PageSize = "{page_size}"
-postalCode = "{zip}"
-radius = "{radius}"
-formatResponse = false
-includeFacets = false
-includeDealers = false
-includeVehicles = true
-filters = [
-  { name = "Series", values = ["3 Series"] },
-  { name = "Type", values = ["cpo"] },
-]
+# ----------------------------------------------------------------------------- searches
+
+[[searches]]
+name = "g20-msport-dap-pro"
+description = "G20 3 Series, M Sport + Driving Assistant Professional, Brooklyn Grey or Portimao Blue"
+enabled = true
+zip = "95391"                     # Mountain House, CA; distances are measured from here
+radius = 3000                     # miles; 3000 is about nationwide
+# M Sport is filtered by BMW (Option "M Sport Package" == code 337 exactly). Driving Assistant
+# Professional has no API filter, so it is checked locally (code 5AU). ExteriorColor is coarse
+# (Blue/Gray/...), so the exact paint names are checked locally too.
+filters = { Series = ["3 Series"], Type = ["CPO"], Option = ["M Sport Package"], ExteriorColor = ["Blue", "Gray"] }
+
+[searches.match]
+required_codes = ["337", "5AU"]   # option codes that must all be present
+colors = ["Brooklyn Grey", "Portimao Blue"]   # paint name must contain one of these
+# models = ["330i", "330e"]       # model must contain one of these
+# max_price = 40000               # dollars
+# max_miles = 30000
+# max_distance = 600              # miles from zip
+# min_year = 2023
+# max_year = 2025
+
+# Example second search. Set enabled = true to run it alongside the first one.
+[[searches]]
+name = "m340i-west"
+description = "Example: CPO M340i within 500 miles, under $50k and 30k miles"
+enabled = false
+zip = "95391"
+radius = 500
+filters = { Series = ["3 Series"], Type = ["CPO"], Model = ["340i"] }
+
+[searches.match]
+max_price = 50000
+max_miles = 30000
+
+# ----------------------------------------------------------------------------- API plumbing
+# Rarely changes. See docs/api-reference.md.
 
 # Token: fetched the same way bmwusa.com's own CPO page does (see docs/how-it-works.md).
 # client_auth is a fixed credential shipped in bmwusa.com's public JS bundle (same for every
@@ -42,14 +62,28 @@ filters = [
 url = "https://www.bmwusa.com/token/cpo/"
 client_auth = "Basic Ym13dXNhOldoc21CTVdVU0E="
 auto_refresh = true
-refresh_margin_seconds = 600     # refresh when < 10 min of validity is left (tokens last 24 h)
+refresh_margin_seconds = 600      # refresh when < 10 min of validity is left (tokens last 24 h)
+
+[api]
+url = "https://inventoryservices.bmwdealerprograms.com/vehicle"
+method = "POST"
+page_size = 100                   # 100 verified to work
+max_pages = 30                    # NOTE: pageIndex is an ITEM OFFSET (0, 100, 200, ...)
+results_path = "vehicles"
+auth_env = "BMW_AUTH"             # optional override: Authorization value in an env var
+auth_file = "data/auth.txt"       # cached token (git-ignored, mode 600), managed by bmwcpo.auth
+
+[api.body_defaults]
+formatResponse = false
+includeFacets = false
+includeDealers = false
+includeVehicles = true
 
 [api.headers]
 Content-Type = "application/json"
 
 # Normalized field -> dotted path into each vehicle object.
-# allCodes is a pipe-delimited string with a leading-zero pad ("0337|05AU|...").
-# Paint is only available as a name in `exterior`.
+# allCodes / packageDescriptions are pipe-delimited strings ("0337|05AU|...").
 [fields]
 vin = "vin"
 year = "year"
@@ -63,3 +97,4 @@ dealer = "dealerCode"
 dealer_distance = "distance"
 url = "vdpUrl"
 option_codes = "allCodes"
+option_names = "packageDescriptions"

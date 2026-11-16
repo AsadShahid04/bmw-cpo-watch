@@ -1,7 +1,8 @@
-"""Config-driven HTTP client + response normalizer.
+"""HTTP client for BMW's inventory API, plus the response normalizer.
 
-Everything specific to BMW's API (URL, payload shape, JSON paths) lives in
-config.toml; the Authorization token comes from bmwcpo.auth.
+One Client is shared by all searches in a run: it gets the token lazily (only if a
+request is actually needed), caches raw pages in SQLite, spaces requests out, counts
+them, and refreshes the token once if the API rejects it.
 """
 
 from __future__ import annotations
@@ -10,11 +11,11 @@ import json
 import random
 import sqlite3
 import time
-from typing import Any, Iterator
+from typing import Any
 
 import requests
 
-from . import auth, db
+from . import auth, config, db
 
 DEFAULT_HEADERS = {
     "User-Agent": (
@@ -24,6 +25,14 @@ DEFAULT_HEADERS = {
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "en-US,en;q=0.9",
 }
+
+
+class FatalError(RuntimeError):
+    """Stops the whole run (e.g. no usable token). Message never contains the token."""
+
+
+class SearchError(RuntimeError):
+    """Fails one search (e.g. HTTP 500); other searches still run."""
 
 
 def get_path(obj: Any, path: str) -> Any:
@@ -47,18 +56,6 @@ def get_path(obj: Any, path: str) -> Any:
     return cur[0]
 
 
-def _fill(template: Any, ctx: dict[str, Any]) -> Any:
-    if isinstance(template, str):
-        if template.startswith("{") and template.endswith("}") and template[1:-1] in ctx:
-            return ctx[template[1:-1]]  # keep native type (ints etc.)
-        return template.format(**ctx)
-    if isinstance(template, dict):
-        return {k: _fill(v, ctx) for k, v in template.items()}
-    if isinstance(template, list):
-        return [_fill(v, ctx) for v in template]
-    return template
-
-
 def normalize(raw: dict[str, Any], fields: dict[str, str]) -> dict[str, Any]:
     out: dict[str, Any] = {"raw": raw}
     for name, path in fields.items():
@@ -71,68 +68,100 @@ def normalize(raw: dict[str, Any], fields: dict[str, str]) -> dict[str, Any]:
     return out
 
 
-def fetch_pages(cfg: dict[str, Any], conn: sqlite3.Connection) -> Iterator[dict[str, Any]]:
-    api = cfg["api"]
-    search = cfg["search"]
-    sess = requests.Session()
-    sess.headers.update(DEFAULT_HEADERS)
-    sess.headers.update(api.get("headers", {}))
-    # The inventory API requires an Authorization header. auth.ensure() uses BMW_AUTH,
-    # else data/auth.txt if still valid, else fetches a fresh token (see docs/how-it-works.md).
-    token_source = None
-    if api.get("auth_required", True):
+class Client:
+    def __init__(self, cfg: dict[str, Any], conn: sqlite3.Connection):
+        self.cfg = cfg
+        self.conn = conn
+        self.api = cfg["api"]
+        self.sess = requests.Session()
+        self.sess.headers.update(DEFAULT_HEADERS)
+        self.sess.headers.update(self.api.get("headers", {}))
+        self.token_source: str | None = None
+        self.retried_auth = False
+        self.requests = 0
+        self._last_request = 0.0
+
+    def _ensure_auth(self) -> None:
+        if self.token_source is not None or not self.api.get("auth_required", True):
+            return
         try:
-            token, token_source = auth.ensure(cfg)
+            token, self.token_source = auth.ensure(self.cfg)
         except auth.AuthError as e:
-            raise SystemExit(f"error: {e}") from None
-        sess.headers["Authorization"] = token
-    retried_auth = False
+            raise FatalError(str(e)) from None
+        self.sess.headers["Authorization"] = token
 
-    page = api.get("page_start", 0)
-    page_size = api.get("page_size", 50)
-    max_pages = api.get("max_pages", 40)
-    cache_ttl = cfg.get("cache_ttl_seconds", 3600)
-
-    for _ in range(max_pages):
-        ctx = {**search, "page": page, "page_size": page_size, "offset": page * page_size}
-        params = _fill(api.get("params", {}), ctx)
-        body = _fill(api.get("body", {}), ctx) if api.get("body") else None
-        key = db.cache_key(api["url"], {"p": params, "b": body})
-
-        cached = db.cache_get(conn, key, cache_ttl)
-        if cached is not None:
-            text = cached
-        else:
-            resp = sess.request(
-                api.get("method", "GET"), api["url"], params=params or None,
-                json=body, timeout=30,
+    def _send(self, body: dict[str, Any]) -> requests.Response:
+        lo, hi = self.cfg.get("delay_range_seconds", [2.0, 5.0])
+        if self._last_request:
+            wait = random.uniform(lo, hi) - (time.monotonic() - self._last_request)
+            if wait > 0:
+                time.sleep(wait)
+        try:
+            resp = self.sess.request(
+                self.api.get("method", "POST"), self.api["url"], json=body, timeout=30
             )
-            if (
-                resp.status_code in (401, 403)
-                and token_source in ("file", "fetched")
-                and not retried_auth
-                and cfg.get("token", {}).get("auto_refresh", True)
-            ):
-                # Token rejected before its stated expiry: fetch a new one and retry once.
-                retried_auth = True
-                try:
-                    sess.headers["Authorization"] = auth.refresh(cfg)
-                except auth.AuthError as e:
-                    raise SystemExit(f"error: API returned {resp.status_code}; {e}") from None
-                resp = sess.request(
-                    api.get("method", "GET"), api["url"], params=params or None,
-                    json=body, timeout=30,
-                )
-            resp.raise_for_status()
-            text = resp.text
-            db.cache_put(conn, key, api["url"], text)
-            time.sleep(random.uniform(*cfg.get("delay_range_seconds", [2.0, 5.0])))
+        except requests.RequestException as e:
+            raise SearchError(f"inventory request failed: {type(e).__name__}") from None
+        finally:
+            self.requests += 1
+            self._last_request = time.monotonic()
+        return resp
 
-        data = json.loads(text)
-        items = get_path(data, api["results_path"]) or []
-        if not items:
-            return
-        yield from items
-        if len(items) < page_size:
-            return
-        page += 1
+    def post(self, body: dict[str, Any]) -> str:
+        """POST one body to the inventory API and return the response text."""
+        self._ensure_auth()
+        resp = self._send(body)
+        if (
+            resp.status_code in (401, 403)
+            and self.token_source in ("file", "fetched")
+            and not self.retried_auth
+            and self.cfg.get("token", {}).get("auto_refresh", True)
+        ):
+            # Token rejected before its stated expiry: fetch a new one and retry once.
+            self.retried_auth = True
+            try:
+                self.sess.headers["Authorization"] = auth.refresh(self.cfg)
+            except auth.AuthError as e:
+                raise FatalError(f"inventory API returned HTTP {resp.status_code}; {e}") from None
+            self.token_source = "fetched"
+            resp = self._send(body)
+        if resp.status_code in (401, 403):
+            raise FatalError(f"inventory API rejected the token (HTTP {resp.status_code})")
+        if resp.status_code != 200:
+            raise SearchError(f"inventory API returned HTTP {resp.status_code}")
+        return resp.text
+
+    def fetch_search(self, search: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """All vehicles for one search, paging by offset. Returns (vehicles, meta)."""
+        page_size = self.api.get("page_size", 100)
+        max_pages = self.api.get("max_pages", 30)
+        cache_ttl = self.cfg.get("cache_ttl_seconds", 3600)
+        before = self.requests
+        items: list[dict[str, Any]] = []
+        total: int | None = None
+        pages = 0
+        for page in range(max_pages):
+            body = config.build_body(self.cfg, search, offset=page * page_size, page_size=page_size)
+            key = db.cache_key(self.api["url"], body)
+            text = db.cache_get(self.conn, key, cache_ttl)
+            if text is None:
+                text = self.post(body)
+                db.cache_put(self.conn, key, self.api["url"], text)
+            pages += 1
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                raise SearchError("inventory API returned non-JSON") from None
+            if isinstance(data.get("totalRecords"), int):
+                total = data["totalRecords"]
+            batch = get_path(data, self.api.get("results_path", "vehicles")) or []
+            items.extend(batch)
+            if len(batch) < page_size or (total is not None and len(items) >= total):
+                break
+        meta = {
+            "total_records": total,
+            "fetched": len(items),
+            "pages": pages,
+            "requests": self.requests - before,
+        }
+        return items, meta

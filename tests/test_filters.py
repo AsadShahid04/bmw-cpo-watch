@@ -1,16 +1,21 @@
 from bmwcpo.client import get_path, normalize
 from bmwcpo.codes import normalize_code
-from bmwcpo.filters import color_match, matches
+from bmwcpo.filters import color_match, failed_rules, matches
+
+RULES = {"required_codes": ["337", "5AU"], "colors": ["Brooklyn Grey", "Portimao Blue"]}
 
 
 def car(**kw):
     base = {
         "vin": "WBA00000000000001",
-        "model": "3 Series 330i xDrive",
+        "model": "330i xDrive",
+        "year": 2024,
         "color_name": "Brooklyn Grey Metallic",
-        "color_code": "C4P",
-        "option_codes": ["S337A", "SA5AU"],
+        "option_codes": ["0337", "05AU"],
         "option_names": [],
+        "price": 38000,
+        "mileage": 20000,
+        "dealer_distance": 350.0,
     }
     base.update(kw)
     return base
@@ -29,39 +34,53 @@ def test_normalize_code():
 
 
 def test_pipe_delimited_codes_from_live_api_shape():
-    raw = {"vin": "V1", "modelSeries": "3 Series", "exterior": "Brooklyn Grey Metallic",
-           "allCodes": "01PP|0337|05AU|0ZPP"}
-    n = normalize(raw, {"vin": "vin", "series": "modelSeries", "color_name": "exterior", "option_codes": "allCodes"})
+    raw = {"vin": "V1", "exterior": "Brooklyn Grey Metallic", "allCodes": "01PP|0337|05AU|0ZPP"}
+    n = normalize(raw, {"vin": "vin", "color_name": "exterior", "option_codes": "allCodes"})
     assert n["option_codes"] == ["01PP", "0337", "05AU", "0ZPP"]
-    assert matches(n)
+    assert matches(n, RULES)
     n["option_codes"].remove("05AU")
-    assert not matches(n)
+    assert failed_rules(n, RULES) == ["required_codes:5AU"]
 
 
-def test_match_by_codes():
-    assert matches(car())
+def test_match_by_codes_and_colors():
+    assert matches(car(), RULES)
+    assert matches(car(color_name="Portimao Blue Metallic"), RULES)
 
 
-def test_match_portimao_by_code_and_name():
-    assert matches(car(color_name="", color_code="C31"))
-    assert matches(car(color_name="Portimao Blue Metallic", color_code=None))
+def test_color_folding_accents_and_gray():
+    assert color_match(car(color_name="Portimão Blue Metallic"), ["Portimao Blue"]) == "Portimao Blue"
+    assert color_match(car(color_name="Brooklyn Gray"), ["Brooklyn Grey"]) == "Brooklyn Grey"
 
 
 def test_phytonic_is_not_portimao():
-    assert color_match(car(color_name="Phytonic Blue", color_code="C1M")) is None
-
-
-def test_missing_driving_assistant_fails():
-    assert not matches(car(option_codes=["S337A"]))
+    assert color_match(car(color_name="Phytonic Blue Metallic"), ["Portimao Blue"]) is None
+    assert "colors" in failed_rules(car(color_name="Phytonic Blue Metallic"), RULES)
 
 
 def test_name_fallback_when_codes_absent():
-    l = car(option_codes=[], option_names=["M Sport Package", "Driving Assistant Professional Package"])
-    assert matches(l)
+    l = car(option_codes=[], option_names=["M Sport Package", "Driving Assistance Professional Package"])
+    assert matches(l, RULES)
 
 
-def test_wrong_series_fails():
-    assert not matches(car(model="X3 xDrive30i"))
+def test_numeric_limits():
+    rules = {"max_price": 40000, "max_miles": 25000, "max_distance": 500, "min_year": 2023, "max_year": 2024}
+    assert matches(car(), rules)
+    assert failed_rules(car(price=45000, mileage=30000), rules) == ["max_price", "max_miles"]
+    assert failed_rules(car(dealer_distance=900, year=2022), rules) == ["max_distance", "min_year"]
+    assert failed_rules(car(year=2025), rules) == ["max_year"]
+
+
+def test_unknown_values_pass_limits():
+    assert matches(car(price=None, mileage=None, dealer_distance=None), {"max_price": 1, "max_miles": 1, "max_distance": 1})
+
+
+def test_models_rule():
+    assert matches(car(model="330e"), {"models": ["330e", "M340i"]})
+    assert not matches(car(model="330i xDrive"), {"models": ["330e"]})
+
+
+def test_empty_rules_match_everything():
+    assert matches(car(option_codes=[], color_name="White"), {})
 
 
 def test_get_path_and_normalize():

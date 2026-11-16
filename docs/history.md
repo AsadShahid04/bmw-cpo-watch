@@ -33,12 +33,36 @@ Calling that endpoint directly returned a valid 24-hour token, and the inventory
 (HTTP 200). The token logic then moved into `bmwcpo/auth.py`, so `python -m bmwcpo.run`
 refreshes it on its own and no browser is involved at all.
 
+## Filter research → 1 request per run (Nov 15, late)
+
+One request with `includeFacets: true` listed 18 filter types and their exact values (see
+[searches.md](searches.md)). A handful of small test queries then established:
+
+- `Option: "M Sport Package"` selects **exactly** the cars with code 337. Both counts were 158.
+- Driving Assistant Professional (5AU) has **no** filter. "Driving Assistance Package" is a
+  different, broader package.
+- Values inside `Option` are ANDed (M Sport + Head-up Display → 0). Values inside other
+  filters are ORed (Blue + Gray = 177 + 268 = 445). Different filters are ANDed.
+- M Sport + Blue/Gray on BMW's side returns 79 cars in 1 request, and **all 5 known matches**
+  are among them. The old way was 1,078 cars in 11 requests.
+
+That led to the current design: several named searches in `config.toml`, each with
+server-side `filters` and local `match` rules; alerts for new matches, price drops and sold
+cars; health checks; a JSON report for an agent; and `--dry-run`.
+
+Every alert path was checked on real data (a copy of the database with a changed price, a
+removed match and a phantom match). The health paths were checked with the token endpoint
+pointed at localhost (exit 2) and with a search that returns 0 cars (exit 1).
+
 ## Decisions
 
 - **No browser automation and no evasion.** The token request is the same single call the site
   makes for every visitor.
-- **The token is never printed** in output, logs, errors or git. It exists only in
+- **The token is never printed** in output, logs, reports, errors or git. It exists only in
   `data/auth.txt` or `BMW_AUTH`.
-- **Low volume.** About 12 requests per run, with a 1-hour response cache and random 1.5–4 s
-  delays between pages. One or two runs a day.
+- **Low volume.** About 1 request per 100 cars per search (1 in total for the default search),
+  with a 1-hour response cache and random 1.5–4 s delays between requests. One or two runs a day.
+- **Filter on BMW's side where it's exact; check locally where it isn't.**
+- **Baseline first.** A new search lists its current matches once instead of sending a flood
+  of "new" alerts. Suspicious results never mark cars as sold.
 - **Manual fallback kept** (`scripts/save_auth.sh`) in case BMW changes the token endpoint.

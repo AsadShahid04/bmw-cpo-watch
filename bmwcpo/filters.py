@@ -1,47 +1,69 @@
-"""Match normalized listings against what we want."""
+"""Local match rules for a search (the `match` table of a [[searches]] entry).
+
+All rules that are set must pass. Unknown values (e.g. a car with no listed price)
+pass numeric limits rather than being silently dropped.
+"""
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+import unicodedata
+from typing import Any
 
-from .codes import (
-    OPTION_NAME_FALLBACKS,
-    REQUIRED_OPTION_CODES,
-    WANTED_COLORS,
-    normalize_code,
-)
+from .codes import OPTION_NAME_FALLBACKS, normalize_code
 
 
-def _has_option(listing: dict[str, Any], code: str) -> bool:
-    codes = {normalize_code(c) for c in listing.get("option_codes", [])}
-    if code in codes:
+def fold(text: str | None) -> str:
+    """Lowercase, strip accents (Portimão -> portimao), and treat gray/grey as the same."""
+    t = unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode().lower()
+    return t.replace("gray", "grey")
+
+
+def has_code(listing: dict[str, Any], code: str) -> bool:
+    code = normalize_code(code)
+    if code in {normalize_code(c) for c in listing.get("option_codes", [])}:
         return True
-    names = " | ".join(n.lower() for n in listing.get("option_names", []))
-    return any(frag in names for frag in OPTION_NAME_FALLBACKS.get(code, []))
+    names = " | ".join(fold(n) for n in listing.get("option_names", []))
+    return any(fold(frag) in names for frag in OPTION_NAME_FALLBACKS.get(code, []))
 
 
-def color_match(listing: dict[str, Any], wanted=WANTED_COLORS) -> str | None:
-    code = (listing.get("color_code") or "").strip().upper()
-    name = (listing.get("color_name") or "").strip().lower()
-    for label, spec in wanted.items():
-        if code and code in spec["codes"]:
-            return label
-        if any(frag in name for frag in spec["names"]):
-            return label
+def color_match(listing: dict[str, Any], colors: list[str]) -> str | None:
+    """Return the configured color whose name appears in the car's paint name, if any."""
+    name = fold(listing.get("color_name"))
+    for c in colors:
+        if fold(c) in name:
+            return c
     return None
 
 
-def is_three_series(listing: dict[str, Any]) -> bool:
-    series = (listing.get("series") or listing.get("model") or "").lower()
-    return "3 series" in series or series.startswith("3") or "330" in series or "m340" in series
-
-
-def matches(
-    listing: dict[str, Any],
-    required: Iterable[str] = REQUIRED_OPTION_CODES,
-) -> bool:
-    return (
-        is_three_series(listing)
-        and color_match(listing) is not None
-        and all(_has_option(listing, c) for c in required)
+def failed_rules(listing: dict[str, Any], rules: dict[str, Any]) -> list[str]:
+    """Names of the rules this car fails (empty list = it matches)."""
+    failed = []
+    for code in rules.get("required_codes", []):
+        if not has_code(listing, code):
+            failed.append(f"required_codes:{code}")
+    if rules.get("colors") and color_match(listing, rules["colors"]) is None:
+        failed.append("colors")
+    if rules.get("models"):
+        model = fold(listing.get("model"))
+        if not any(fold(m) in model for m in rules["models"]):
+            failed.append("models")
+    limits = (
+        ("max_price", "price", lambda v, lim: v <= lim),
+        ("max_miles", "mileage", lambda v, lim: v <= lim),
+        ("max_distance", "dealer_distance", lambda v, lim: v <= lim),
+        ("min_year", "year", lambda v, lim: v >= lim),
+        ("max_year", "year", lambda v, lim: v <= lim),
     )
+    for rule, field, ok in limits:
+        if rule in rules:
+            value = listing.get(field)
+            try:
+                if value is not None and not ok(float(value), float(rules[rule])):
+                    failed.append(rule)
+            except (TypeError, ValueError):
+                pass
+    return failed
+
+
+def matches(listing: dict[str, Any], rules: dict[str, Any]) -> bool:
+    return not failed_rules(listing, rules)

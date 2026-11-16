@@ -23,16 +23,30 @@ Headers: `Accept`, `Content-Type: application/json`, `Accept-Language`, `Authori
 ```json
 {"pageIndex": 0, "PageSize": 100, "postalCode": "95391", "radius": 3000,
  "formatResponse": false, "includeFacets": false, "includeDealers": false, "includeVehicles": true,
- "filters": [{"name": "Series", "values": ["3 Series"]}, {"name": "Type", "values": ["cpo"]}]}
+ "filters": [{"name": "Series", "values": ["3 Series"]}, {"name": "Type", "values": ["CPO"]},
+             {"name": "Option", "values": ["M Sport Package"]},
+             {"name": "ExteriorColor", "values": ["Blue", "Gray"]}]}
 ```
+
+`bmwcpo/config.py` builds this body from each `[[searches]]` entry (`zip`, `radius`,
+`filters`).
 
 - **Paging quirk:** `pageIndex` is an item **offset** (0, 100, 200, ...), not a page number.
   Stepping by 100 returned all 1,078 nationwide CPO 3 Series with no duplicate VINs.
 - `PageSize` 100 works. `radius` up to at least 3000 miles works (about nationwide).
-- Filters are `{name, values}` pairs. Facet names seen: Series, Type (`cpo`), Model, Year,
-  Price, Odometer, ExteriorColor (coarse: Black/Blue/Grey...), Drivetrain, FuelType, DealerCode,
-  Option. Set `includeFacets: true` to see the exact value strings.
-- The request shape lives in `config.toml` `[api.body]`, so changes don't need code edits.
+- Filters are `{name, values}` pairs, and values must match facet strings exactly. Within
+  `Option`, values are **AND**ed; within any other filter they're **OR**ed; different filters
+  are ANDed. The full value list is in [searches.md](searches.md#filter-reference-api-side).
+
+### Response
+
+| Field | Meaning |
+|---|---|
+| `totalRecords` | cars matching the filters (used for the "fetched N of M" health check) |
+| `resultRecords`, `pageIndex`, `pageSize` | this page |
+| `vehicles` | the cars (see below) |
+| `facets` | with `includeFacets: true`: `[{name, values: [{value, filterCount, totalCount, selected}]}]`. `filterCount` = cars in the current search with that value. For a filter already in use, it's computed as if that filter were removed. `totalCount` = all BMW USA inventory. |
+| `filters`, `postalCode`, `radius`, `sortBy` (`PMA`), `sortDirection` | echo of the request |
 
 ### Vehicle fields we use
 
@@ -47,12 +61,20 @@ Headers: `Accept`, `Content-Type: application/json`, `Accept-Language`, `Authori
 | `distance` | dealer_distance | miles from `postalCode` |
 | `vdpUrl` | url | dealer's listing page |
 | `allCodes` | option_codes | pipe-delimited, zero-padded: `0337\|05AU\|0ZDY\|...` |
+| `packageDescriptions` | option_names | pipe-delimited package names; fallback for `required_codes` |
+
+Also present but not mapped: `allDescriptions` (descriptions in the same order as
+`allCodes`), `exteriorMeta` (the coarse color the `ExteriorColor` filter uses), `interior`,
+`upholstery`, `drivetrain`, `fuelType`, `msrp`, `stockNumber`, `photos`, `carfaxUrl`,
+`carFaxNumOwners`, and others. Any of them can be added to `[fields]`.
 
 ### Option and paint codes
 
 | Code | Meaning |
 |---|---|
 | 337 (`0337`, S337A) | M Sport Package |
-| 5AU (`05AU`, SA5AU) | Driving Assistant Professional; package ZDY also appears |
+| 5AU (`05AU`, SA5AU) | Active Driving Assistant Pro (in package ZDY, Driving Assistance Professional Package). No API filter. |
 | C4P | Brooklyn Grey Metallic (not in the API response; color matches by name) |
 | C31 | Portimao Blue Metallic (C1M is Phytonic Blue, not Portimao) |
+
+More codes, checked against `allDescriptions`, are in [searches.md](searches.md#match-reference-local-side).

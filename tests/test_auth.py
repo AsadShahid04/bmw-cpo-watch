@@ -82,11 +82,12 @@ def test_no_refresh_when_disabled(tmp_path):
         auth.ensure(cfg_for(tmp_path, auto_refresh=False))
 
 
-def test_fetch_pages_refreshes_once_on_401(tmp_path, monkeypatch):
+def test_client_refreshes_once_on_401(tmp_path, monkeypatch):
     cfg = cfg_for(tmp_path)
     cfg["api"].update(url="https://example.test/vehicle", method="POST", page_size=2,
-                      max_pages=1, results_path="vehicles", body={"p": "{offset}"})
-    cfg.update(search={}, cache_ttl_seconds=0, delay_range_seconds=[0, 0])
+                      max_pages=1, results_path="vehicles")
+    cfg.update(cache_ttl_seconds=0, delay_range_seconds=[0, 0])
+    search = {"name": "s", "zip": "95391", "radius": 100, "filters": {}, "match": {}}
     auth.save(f"Bearer {fake_jwt(int(time.time()) + 3600)}", tmp_path / "auth.txt")
     new_jwt = fake_jwt(int(time.time()) + 86400)
     monkeypatch.setattr(auth.requests, "post", lambda *a, **k: FakeResp(200, {"access_token": new_jwt}))
@@ -101,5 +102,21 @@ def test_fetch_pages_refreshes_once_on_401(tmp_path, monkeypatch):
 
     monkeypatch.setattr(client.requests.Session, "request", fake_request)
     conn = db.connect(str(tmp_path / "t.sqlite"))
-    assert [v["vin"] for v in client.fetch_pages(cfg, conn)] == ["V1"]
+    c = client.Client(cfg, conn)
+    vehicles, meta = c.fetch_search(search)
+    assert [v["vin"] for v in vehicles] == ["V1"]
     assert len(sent) == 2 and sent[1] == f"Bearer {new_jwt}"
+    assert meta["requests"] == 2 and c.requests == 2
+
+
+def test_client_stops_when_token_rejected_twice(tmp_path, monkeypatch):
+    cfg = cfg_for(tmp_path)
+    cfg["api"].update(url="https://example.test/vehicle", method="POST", page_size=2,
+                      max_pages=1, results_path="vehicles")
+    cfg.update(cache_ttl_seconds=0, delay_range_seconds=[0, 0])
+    auth.save(f"Bearer {fake_jwt(int(time.time()) + 3600)}", tmp_path / "auth.txt")
+    monkeypatch.setattr(auth.requests, "post", lambda *a, **k: FakeResp(200, {"access_token": fake_jwt(int(time.time()) + 86400)}))
+    monkeypatch.setattr(client.requests.Session, "request", lambda self, *a, **k: FakeResp(403))
+    c = client.Client(cfg, db.connect(str(tmp_path / "t.sqlite")))
+    with pytest.raises(client.FatalError, match="HTTP 403"):
+        c.fetch_search({"name": "s", "zip": "95391", "radius": 100, "filters": {}, "match": {}})

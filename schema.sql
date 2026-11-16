@@ -33,5 +33,35 @@ CREATE TABLE IF NOT EXISTS raw_responses (
     fetched_at INTEGER NOT NULL
 );
 
+-- One row per (search, VIN): whether that car matches that search's rules, and when.
+CREATE TABLE IF NOT EXISTS search_hits (
+    search          TEXT NOT NULL,
+    vin             TEXT NOT NULL,
+    is_match        INTEGER NOT NULL DEFAULT 0,
+    distance        REAL,               -- miles from this search's zip
+    first_seen      INTEGER NOT NULL,
+    last_seen       INTEGER NOT NULL,
+    first_matched   INTEGER,
+    active          INTEGER NOT NULL DEFAULT 1,  -- 0 = no longer returned by this search
+    PRIMARY KEY (search, vin)
+);
+
+-- Last healthy result count per search, for the "results dropped sharply" health check.
+CREATE TABLE IF NOT EXISTS search_stats (
+    search          TEXT PRIMARY KEY,
+    signature       TEXT,               -- zip/radius/filters; a change resets the baseline
+    last_total      INTEGER,
+    last_success    INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS runs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at      INTEGER NOT NULL,
+    status          TEXT NOT NULL,      -- ok | warning | error
+    requests        INTEGER,
+    report_json     TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_listings_match ON listings(is_match, active);
+CREATE INDEX IF NOT EXISTS idx_hits_match ON search_hits(search, is_match, active);
 CREATE INDEX IF NOT EXISTS idx_price_vin ON price_history(vin);

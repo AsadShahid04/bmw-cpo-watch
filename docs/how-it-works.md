@@ -1,94 +1,113 @@
 # How it works
 
-One command, `python -m bmwcpo.run`, does everything: gets a valid API token, pages through
-BMW's CPO inventory API, checks each car against what we want, saves it to SQLite, and prints
-new matches.
+One command, `python -m bmwcpo.run`, does everything:
+1. Gets a valid API token.
+2. Runs each saved search against BMW's CPO inventory API.
+3. Checks the returned cars against that search's rules and saves them to SQLite.
+4. Reports what changed: new matches, price drops, sold cars and health problems. The report
+   goes to the screen and to `data/last_run.json`.
 
 ## A run, step by step
 
 ```mermaid
 flowchart TD
-    start(["python -m bmwcpo.run"]) --> env{"BMW_AUTH env var set?"}
-    env -- yes --> page
-    env -- no --> cached{"data/auth.txt has a token<br/>valid for more than 10 min?"}
-    cached -- yes --> page
-    cached -- no --> fetch["POST www.bmwusa.com/token/cpo/<br/>with BMW's public client credential"]
-    fetch --> ok{"HTTP 200 and a valid JWT?"}
-    ok -- no --> fail(["Stop with an error,<br/>e.g. token endpoint returned HTTP 401"])
-    ok -- yes --> save["Save Bearer token to data/auth.txt<br/>(mode 600, lasts 24 h)"]
-    save --> page
+    start(["python -m bmwcpo.run"]) --> cfg{"config.toml valid?"}
+    cfg -- no --> cfgerr(["Stop: config error, exit 2"])
+    cfg -- yes --> next["Next enabled search"]
 
-    page["Next page of 100<br/>(offset 0, 100, 200, ...)"] --> hit{"Same page cached<br/>in the last hour?"}
-    hit -- yes --> norm
-    hit -- no --> api["POST inventoryservices.bmwdealerprograms.com/vehicle"]
-    api --> rejected{"401 or 403?"}
-    rejected -- "yes, first time" --> retry["Fetch a new token,<br/>retry this page once"]
-    retry --> api
-    rejected -- "yes, again" --> fail
-    rejected -- no --> store["Cache the raw response,<br/>wait 1.5 to 4 s"]
-    store --> norm["Normalize each vehicle"]
-    norm --> match{"3 Series + wanted color<br/>+ options 337 and 5AU?"}
-    match -- "yes: is_match = 1" --> upsert["Save to listings<br/>and price_history"]
-    match -- "no: is_match = 0" --> upsert
-    upsert --> more{"Got a full page of 100?"}
-    more -- yes --> page
-    more -- no --> sold["Mark VINs not seen this run<br/>as inactive (sold)"]
-    sold --> done(["Print counts + NEW MATCH lines"])
+    next --> hit{"Same request cached<br/>in the last hour?"}
+    hit -- yes --> got["Cars for this search"]
+    hit -- no --> tok{"Token loaded yet?"}
+    tok -- yes --> api
+    tok -- no --> valid{"data/auth.txt token valid<br/>for more than 10 min?"}
+    valid -- yes --> api
+    valid -- no --> fetch["POST www.bmwusa.com/token/cpo/<br/>and save the 24 h token"]
+    fetch -- fails --> fatal(["Health ERROR: stop, exit 2"])
+    fetch -- ok --> api["POST inventory API with this<br/>search's filters (100 cars per page)"]
+    api -- "401/403 first time" --> fetch
+    api -- "401/403 again" --> fatal
+    api -- "other error" --> serr["Health ERROR for this search,<br/>continue with the others"]
+    api -- ok --> got
+    got --> more{"More searches?"}
+    serr --> more
+    more -- yes --> next
+
+    more -- no --> store["Save every car once (listings),<br/>note old vs new price"]
+    store --> each["For each search: check every car<br/>against its match rules"]
+    each --> newm["Matches that weren't matches before<br/>= NEW MATCH alert"]
+    each --> drop["Matching cars whose price fell<br/>= PRICE DROP alert"]
+    each --> health{"Result looks healthy?<br/>(not 0, no sharp drop,<br/>fields present)"}
+    health -- no --> warn["Health WARNING; don't mark<br/>anything as sold this run"]
+    health -- yes --> gone["Matches missing this run<br/>= GONE alert (sold)"]
+    newm --> report
+    drop --> report
+    warn --> report
+    gone --> report(["Write data/last_run.json + print summary<br/>exit 0 ok / 1 warning / 2 error"])
 ```
+
+The first time a search runs, it's a **baseline**. Its current matches are listed once as
+`search_started`, not as dozens of "new" alerts.
+
+## Searches: filters vs match
+
+Each `[[searches]]` block in `config.toml` has:
+- **`filters`**, sent to BMW, so BMW returns only those cars. These must be exact facet values.
+- **`match`**, checked locally on each car: option codes, paint names, price, miles, distance
+  and year limits.
+
+The default search filters on 3 Series, CPO, M Sport Package and Blue/Gray on BMW's side. It
+then checks Driving Assistant Professional (code 5AU) and the exact paints locally, because the
+API can't filter those. That takes **1 request** instead of 11. Full guide, including every
+filter value and how values combine: [searches.md](searches.md).
+
+## Alerts
+
+| Alert | When |
+|---|---|
+| `new_match` | A car matches a search and wasn't an active match for it last time. That covers new listings, cars that start matching (e.g. a price drop below `max_price`), and relisted cars. |
+| `price_drop` | A matching car's price is at least `[alerts] min_price_drop` lower than its last price |
+| `match_gone` | A car that was a match is no longer returned. Usually sold. |
+| `search_started` | The first run of a search; lists its current matches once |
+| `health` | Something is wrong; see below |
+
+## Health checks
+
+| Check | Level | Notes |
+|---|---|---|
+| Token can't be fetched, or the API rejects it twice | error | The run stops; the other searches are skipped |
+| A search's request fails (HTTP 5xx, network) | error | The other searches still run |
+| Config has an unknown filter name | warning | Probably a typo |
+| A search returns 0 cars | warning | Filters too narrow, or the API changed |
+| A search returns less than half its last count | warning | Reported once; that count becomes the new normal |
+| Fewer cars fetched than BMW says exist | warning | Raise `[api] max_pages` |
+| More than half the cars lack codes, color or price | warning | The API response shape probably changed |
+
+When a search looks unhealthy, nothing is marked as sold that run. That prevents a flood of
+false "gone" alerts when the API hiccups. The agent running this also watches for staleness
+(no successful run in 36 hours); see [AGENTS.md](../AGENTS.md).
 
 ## The API token
 
-The inventory API (`inventoryservices.bmwdealerprograms.com/vehicle`) needs an
-`Authorization: Bearer <token>` header. This is the part that used to need a person copying the
-header out of Chrome DevTools every day. It no longer does.
+The inventory API needs `Authorization: Bearer <token>`. bmwusa.com's own CPO page gets one
+like this, in its JS bundle (`bmwusa-universal-inventory...min.js`):
 
-**Where bmwusa.com's own page gets it.** The CPO search page's JS bundle
-(`bmwusa-universal-inventory...min.js`) has a small function that runs before every search:
-
-1. Use the token already in the app's memory if it hasn't expired.
+1. Use the token in the app's memory if it hasn't expired.
 2. Otherwise use `localStorage["access_token"]` if it hasn't expired.
-3. Otherwise `POST {tokenURL}token/cpo/`, with a fixed `Authorization: Basic ...` client
-   credential written into the bundle, and save the JSON response to localStorage.
+3. Otherwise `POST https://www.bmwusa.com/token/cpo/`, with a fixed `Authorization: Basic ...`
+   client credential written into the bundle (the same for every visitor; nobody logs in).
 
-`tokenURL` is set in another bundle file (`paths2.js`) to the site's own origin, so the request
-goes to `https://www.bmwusa.com/token/cpo/`. The client credential is the same for every
-visitor. It identifies the website, not a person, and nobody logs in.
+[`bmwcpo/auth.py`](../bmwcpo/auth.py) makes that same POST and stores `Bearer <access_token>`
+in `data/auth.txt` (mode 600, git-ignored). The token is a JWT whose `iat` and `exp` are
+86,400 seconds apart, so it lasts **24 hours**. The token is only fetched when a request is
+actually needed, so a fully cached run doesn't touch it.
 
-**What we do.** [`bmwcpo/auth.py`](../bmwcpo/auth.py) makes that same POST, with the same
-headers, and stores `Bearer <access_token>` in `data/auth.txt`. The URL and client credential
-are in [`config.toml`](../config.toml) under `[token]`.
-
-**What the token is.** It's a JWT: three base64 parts separated by dots. The middle part is
-readable JSON, and it says the token was issued by Shift Digital (BMW's dealer-platform vendor)
-with role `API`. The `iat` (issued) and `exp` (expires) fields are exactly 86,400 seconds apart,
-so a token lasts **24 hours**. `bmwcpo.auth` reads `exp` to decide when to refresh. To check
-the current token's expiry without printing it:
-
-    python -m bmwcpo.auth        # "auth still valid (expires 2026-11-16 23:20)"
-
-**Order of preference** in `auth.ensure()`:
-
-| Source | When it's used |
+| Source, in order | When it's used |
 |---|---|
-| `BMW_AUTH` env var | If set, used as-is. Useful for a one-off test with a hand-copied value. |
-| `data/auth.txt` | If it holds a JWT with more than 10 min left, or a non-JWT value (trusted as-is). |
-| Fresh fetch | Otherwise, if `[token] auto_refresh = true` (the default). |
+| `BMW_AUTH` env var | If set, used as-is |
+| `data/auth.txt` | If it has more than 10 minutes left (or isn't a JWT) |
+| Fresh fetch | Otherwise (`[token] auto_refresh = true`) |
 
-The token value never appears in output, logs or error messages. Errors say only things like
-`token endpoint returned HTTP 401`.
-
-## Matching
-
-[`bmwcpo/filters.py`](../bmwcpo/filters.py) and [`bmwcpo/codes.py`](../bmwcpo/codes.py) decide
-whether a car matches. All three conditions must hold:
-
-| Check | How |
-|---|---|
-| 3 Series | `modelSeries` / `model` mentions 3 Series, 330, or M340 |
-| Color | `exterior` name contains "brooklyn grey" or "portimao blue". The API gives no paint code, so this is by name. |
-| Options | `allCodes` (e.g. `0337\|05AU\|...`) contains both **337** (M Sport) and **5AU** (Driving Assistant Professional). Codes are zero-padded, and `normalize_code` strips the pad. |
-
-Edit `REQUIRED_OPTION_CODES` and `WANTED_COLORS` in `codes.py` to hunt for something else.
+To check expiry without printing the token: `python -m bmwcpo.auth`.
 
 ## Storage
 
@@ -96,22 +115,24 @@ Edit `REQUIRED_OPTION_CODES` and `WANTED_COLORS` in `codes.py` to hunt for somet
 
 | Table | Holds |
 |---|---|
-| `listings` | One row per VIN: price, miles, dealer code, distance, URL, option codes, `is_match`, `first_seen`/`last_seen`, `active` |
+| `listings` | One row per VIN: latest price, miles, dealer, URL, option codes, raw JSON |
 | `price_history` | A row each time a VIN's price changes |
-| `raw_responses` | Raw API pages, reused for 1 hour (`cache_ttl_seconds`) so reruns don't hit BMW |
-
-A "NEW MATCH" is a matching VIN the database has never seen. A listing missing from a run is
-marked `active = 0` (sold or delisted). Keep `data/` between runs, or every match counts as new.
+| `search_hits` | One row per (search, VIN): `is_match`, distance, `first_matched`, `active` (still returned by that search) |
+| `search_stats` | Last healthy result count per search, for the sharp-drop check |
+| `runs` | Every run's status, request count and full JSON report |
+| `raw_responses` | Raw API pages, reused for 1 hour (`cache_ttl_seconds`) |
 
 ## Code map
 
 | File | Job |
 |---|---|
-| [`bmwcpo/run.py`](../bmwcpo/run.py) | Entry point: loop over listings, match, store, print |
-| [`bmwcpo/auth.py`](../bmwcpo/auth.py) | Get or refresh the API token (also a CLI: `python -m bmwcpo.auth`) |
-| [`bmwcpo/client.py`](../bmwcpo/client.py) | Build requests from `config.toml`, page through results, cache, retry on 401 |
-| [`bmwcpo/filters.py`](../bmwcpo/filters.py), [`codes.py`](../bmwcpo/codes.py) | What counts as a match |
+| [`bmwcpo/run.py`](../bmwcpo/run.py) | Entry point: run searches, detect alerts, health checks, report, `--dry-run` |
+| [`bmwcpo/config.py`](../bmwcpo/config.py) | Load and validate `config.toml`; build each search's request body |
+| [`bmwcpo/client.py`](../bmwcpo/client.py) | HTTP client: token on demand, paging, cache, delays, 401 retry, request count |
+| [`bmwcpo/auth.py`](../bmwcpo/auth.py) | Get or refresh the API token (also a CLI) |
+| [`bmwcpo/filters.py`](../bmwcpo/filters.py) | Local match rules |
+| [`bmwcpo/codes.py`](../bmwcpo/codes.py) | Option-code normalization and reference |
 | [`bmwcpo/db.py`](../bmwcpo/db.py) | SQLite helpers |
-| [`config.toml`](../config.toml) | Search ZIP and radius, API request shape, token endpoint, field mapping |
-| [`scripts/daily.sh`](../scripts/daily.sh) | Scheduled wrapper that logs only counts, new matches and errors |
+| [`bmwcpo/facets.py`](../bmwcpo/facets.py) | `python -m bmwcpo.facets`: list filter values and counts |
+| [`scripts/daily.sh`](../scripts/daily.sh) | Scheduled wrapper; appends the summary to `data/daily.log` |
 | [`scripts/save_auth.sh`](../scripts/save_auth.sh) | Manual fallback: paste a header copied from DevTools |
