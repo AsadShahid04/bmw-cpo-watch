@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BMW CPO 3 Series — DAP + HUD Watch</title>
+<style>
+  :root { --blue:#1c69d4; --ink:#111; --mut:#666; --line:#e3e3e3; --green:#0a7a2f; --bg:#f7f7f7; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:#0b1e3a; color:#fff; padding:18px 16px 14px; }
+  header h1 { margin:0 0 4px; font-size:20px; }
+  header p { margin:2px 0; color:#c8d6ea; font-size:13px; }
+  main { max-width:1060px; margin:0 auto; padding:14px 12px 40px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
+  .health { font-size:13px; color:var(--mut); display:flex; flex-wrap:wrap; gap:6px 18px; }
+  .health b { color:var(--ink); }
+  .ok { color:var(--green); font-weight:600; }
+  h2 { font-size:16px; margin:4px 0 8px; }
+  .panel-list { margin:0; padding-left:18px; font-size:14px; }
+  .panel-list li { margin:4px 0; }
+  .panel-list a { color:var(--blue); }
+  .muted { color:var(--mut); font-size:13px; }
+  .controls { position:sticky; top:0; background:var(--bg); padding:10px 0 8px; z-index:5; }
+  .controls .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  input[type=search], select { font:inherit; padding:8px 10px; border:1px solid #ccc; border-radius:8px; background:#fff; }
+  input[type=search] { flex:1 1 200px; }
+  .tabs { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+  .tab { border:1px solid #ccc; background:#fff; border-radius:999px; padding:6px 12px; font:inherit; font-size:13px; cursor:pointer; }
+  .tab.on { background:var(--blue); border-color:var(--blue); color:#fff; }
+  .toggle { display:inline-flex; align-items:center; gap:5px; font-size:13px; background:#fff; border:1px solid #ccc; border-radius:999px; padding:6px 10px; cursor:pointer; user-select:none; }
+  .toggle input { accent-color:var(--blue); }
+  .car { background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px; }
+  .car-top { display:flex; gap:10px; align-items:flex-start; }
+  .swatches { display:flex; flex-direction:column; gap:6px; flex:0 0 auto; }
+  .sw { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--mut); }
+  .dot { width:18px; height:18px; border-radius:50%; border:1px solid #999; flex:0 0 auto; }
+  .car-main { flex:1 1 auto; min-width:0; }
+  .car-title { font-weight:700; font-size:15px; }
+  .car-sub { color:var(--mut); font-size:13px; margin-top:2px; }
+  .car-price { font-weight:700; font-size:16px; white-space:nowrap; text-align:right; }
+  .car-price .miles { display:block; font-weight:400; font-size:12px; color:var(--mut); }
+  .badges { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+  .badge { font-size:11px; font-weight:700; border-radius:999px; padding:3px 8px; background:#e8f0fe; color:#174ea6; }
+  .badge.match { background:#d9ead3; color:#0a5c1e; }
+  .badge.drop { background:#fce8e6; color:#a50e0e; }
+  .badge.new { background:#fef7e0; color:#7a5a00; }
+  .pkgs { font-size:13px; color:#333; margin-top:8px; line-height:1.45; }
+  details { margin-top:8px; font-size:13px; }
+  details summary { cursor:pointer; color:var(--blue); }
+  details dl { margin:8px 0 0; display:grid; grid-template-columns:130px 1fr; gap:3px 10px; }
+  details dt { color:var(--mut); }
+  details dd { margin:0; word-break:break-all; }
+  details a { color:var(--blue); }
+  .empty { text-align:center; color:var(--mut); padding:30px 0; }
+  footer { font-size:12px; color:var(--mut); line-height:1.5; }
+  footer a { color:var(--blue); }
+  @media (max-width:560px) {
+    .car-price { font-size:15px; }
+    details dl { grid-template-columns:110px 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>BMW CPO 3 Series — DAP + HUD Watch</h1>
+  <p>Certified pre-owned 3 Series nationwide, tracked daily. A car is a <b>match</b> when it has both Driving Assistance Professional (5AU) and a Head-Up Display (6U3/610).</p>
+  <p id="updated">Loading…</p>
+</header>
+<main>
+  <div class="card">
+    <div class="health" id="health"></div>
+  </div>
+
+  <div class="card" id="worth">
+    <h2>Worth knowing</h2>
+    <div id="worth-body"><p class="muted">Loading…</p></div>
+  </div>
+
+  <div class="controls">
+    <div class="row">
+      <input type="search" id="q" placeholder="Search VIN, dealer, color, model…" aria-label="Search cars">
+      <select id="sort" aria-label="Sort">
+        <option value="price-asc">Price: low to high</option>
+        <option value="price-desc">Price: high to low</option>
+        <option value="miles-asc">Mileage: low to high</option>
+        <option value="newest">Newest listed first</option>
+      </select>
+      <select id="maxprice" aria-label="Max price">
+        <option value="">Any price</option>
+        <option value="30000">Up to $30,000</option>
+        <option value="35000">Up to $35,000</option>
+        <option value="40000">Up to $40,000</option>
+        <option value="50000">Up to $50,000</option>
+      </select>
+      <select id="maxmiles" aria-label="Max mileage">
+        <option value="">Any mileage</option>
+        <option value="20000">Up to 20k mi</option>
+        <option value="30000">Up to 30k mi</option>
+        <option value="40000">Up to 40k mi</option>
+        <option value="50000">Up to 50k mi</option>
+      </select>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div class="row">
+      <label class="toggle"><input type="checkbox" id="f-match"> Matches only</label>
+      <label class="toggle"><input type="checkbox" id="f-dap"> DAP Pro</label>
+      <label class="toggle"><input type="checkbox" id="f-hud"> Head-Up Display</label>
+      <label class="toggle"><input type="checkbox" id="f-msport"> M Sport</label>
+      <label class="toggle"><input type="checkbox" id="f-drop"> Price dropped</label>
+    </div>
+  </div>
+
+  <p class="muted" id="count"></p>
+  <div id="list"></div>
+  <p style="text-align:center"><button id="more" class="tab">Show more</button></p>
+
+  <div class="card">
+    <footer id="notes"></footer>
+  </div>
+</main>
+<script>
+const BAY_AREA_HOSTS = ["eastbaybmw.com","bmwoffremont.com","bmwconcord.com","stevenscreekbmw.com","bmwofmountainview.com","bmwofberkeley.com","bmwofsanmateo.com","bmwofnapa.com","bmwofsanrafael.com","hanselbmw.com","weatherford bmw"];
+let DATA = null, shown = 0;
+const PAGE = 50;
+const $ = id => document.getElementById(id);
+const money = n => n == null ? "—" : "$" + Math.round(n).toLocaleString("en-US");
+const miles = n => n == null ? "—" : Math.round(n).toLocaleString("en-US") + " mi";
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./,""); } catch(e){ return ""; } };
+function dealerName(c){
+  const d = (c.dealer || "").trim();
+  if (d && !/^\d/.test(d)) return d;
+  const h = hostOf(c.url || "");
+  return h || d || "Unknown dealer";
+}
+function isBayArea(c){
+  const h = hostOf(c.url || "").toLowerCase();
+  return BAY_AREA_HOSTS.some(x => h.includes(x));
+}
+function fmtDate(epoch){
+  if (!epoch) return "—";
+  return new Date(epoch*1000).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+}
+function fmtDT(iso){
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+}
+
+let tab = "all";
+const TABS = [["all","All"],["matches","Matches"],["norcal","NorCal"],["socal","SoCal"],["rest","Nationwide"],["gone","Gone"]];
+function renderTabs(){
+  $("tabs").innerHTML = TABS.map(([k,label])=>{
+    const n = k==="all" ? DATA.cars.length
+      : k==="matches" ? DATA.counts.matches
+      : k==="gone" ? DATA.counts.gone_recent
+      : (DATA.regions[k] ? DATA.regions[k].inventory : 0);
+    return `<button class="tab${tab===k?" on":""}" data-tab="${k}">${label} (${n})</button>`;
+  }).join("");
+  document.querySelectorAll("#tabs .tab").forEach(b => b.onclick = ()=>{ tab=b.dataset.tab; shown=0; renderTabs(); render(); });
+}
+
+function filtered(){
+  const q = $("q").value.trim().toLowerCase();
+  const maxP = $("maxprice").value ? +$("maxprice").value : Infinity;
+  const maxM = $("maxmiles").value ? +$("maxmiles").value : Infinity;
+  const dropMap = new Map(DATA.price_drops.map(d=>[d.vin,d]));
+  let list = DATA.cars.filter(c => {
+    if (tab==="matches" && !c.status.includes("match")) return false;
+    if (tab==="norcal" && c.region!=="norcal") return false;
+    if (tab==="socal" && c.region!=="socal") return false;
+    if (tab==="rest" && c.region!=="rest") return false;
+    if ($("f-match").checked && !c.status.includes("match")) return false;
+    if ($("f-dap").checked && !c.has_dap) return false;
+    if ($("f-hud").checked && !c.has_hud) return false;
+    if ($("f-msport").checked && !c.has_msport) return false;
+    if ($("f-drop").checked && !dropMap.has(c.vin)) return false;
+    if (c.price != null && c.price > maxP) return false;
+    if (c.miles != null && c.miles > maxM) return false;
+    if (q){
+      const hay = [c.vin,c.year,c.model,c.trim,c.ext_color,c.int_color,dealerName(c),c.dealer].join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  const s = $("sort").value;
+  if (s==="price-asc") list.sort((a,b)=>(a.price??1e12)-(b.price??1e12));
+  if (s==="price-desc") list.sort((a,b)=>(b.price??-1)-(a.price??-1));
+  if (s==="miles-asc") list.sort((a,b)=>(a.miles??1e12)-(b.miles??1e12));
+  if (s==="newest") list.sort((a,b)=>(b.first_seen||0)-(a.first_seen||0));
+  return {list, dropMap};
+}
+function goneList(){
+  return DATA.gone.map(g => ({
+    vin:g.vin, year:g.year, model:g.model, trim:"", ext_color:g.color_name, ext_hex:"#9A9DA0",
+    int_color:"", int_hex:"#9A9DA0", price:g.price, miles:g.mileage, dealer:"", distance:g.dealer_distance,
+    region:g.region, url:g.url, packages:[], has_dap:false, has_hud:false, has_msport:false,
+    status:["gone"], first_seen:null, last_seen:g.last_seen, _gone:true
+  }));
+}
+
+function carHTML(c, dropMap){
+  const drop = dropMap.get(c.vin);
+  const badges = [];
+  if (c.status.includes("dap-hud")) badges.push('<span class="badge match">DAP + HUD MATCH</span>');
+  else if (c.status.includes("g20")) badges.push('<span class="badge match">G20 MATCH</span>');
+  if (c.status.includes("new")) badges.push('<span class="badge new">NEW</span>');
+  if (drop) badges.push(`<span class="badge drop">Price drop · was ${money(drop.old_price)}</span>`);
+  if (c._gone) badges.push('<span class="badge">GONE / DELISTED</span>');
+  if (isBayArea(c)) badges.push('<span class="badge">Bay Area</span>');
+  const pkgs = (c.packages||[]).join(" · ") || "No package details listed";
+  const trimPart = (c.trim && c.trim !== c.model) ? " " + c.trim : "";
+  const title = `${c.year||""} BMW ${c.model||""}${trimPart}`.replace(/\s+/g," ").trim();
+  return `<article class="car">
+    <div class="car-top">
+      <div class="swatches">
+        <span class="sw"><span class="dot" style="background:${esc(c.ext_hex)}"></span>${esc(c.ext_color||"—")}</span>
+        <span class="sw"><span class="dot" style="background:${esc(c.int_hex)}"></span>${esc(c.int_color||"—")}</span>
+      </div>
+      <div class="car-main">
+        <div class="car-title">${esc(title)}</div>
+        <div class="car-sub">${esc(dealerName(c))}${c.distance!=null?` · ${Math.round(c.distance)} mi away`:""}${c.carfax_1owner?" · 1-owner":""}</div>
+        <div class="badges">${badges.join("")}</div>
+        <div class="pkgs">${esc(pkgs)}</div>
+        <details><summary>Details</summary>
+          <dl>
+            <dt>VIN</dt><dd>${esc(c.vin)}</dd>
+            <dt>Exterior</dt><dd>${esc(c.ext_color||"—")} (${esc(c.ext_hex)})</dd>
+            <dt>Interior</dt><dd>${esc(c.int_color||"—")} (${esc(c.int_hex)})${c.upholstery?` · ${esc(c.upholstery)}`:""}</dd>
+            <dt>First seen</dt><dd>${fmtDate(c.first_seen)}</dd>
+            <dt>Last seen</dt><dd>${fmtDate(c.last_seen)}</dd>
+            <dt>Listing</dt><dd><a href="${esc(c.url)}" target="_blank" rel="noopener">Dealer listing ↗</a></dd>
+          </dl>
+        </details>
+      </div>
+      <div class="car-price">${money(c.price)}<span class="miles">${miles(c.miles)}</span></div>
+    </div>
+  </article>`;
+}
+
+function render(){
+  let {list, dropMap} = filtered();
+  if (tab==="gone") list = goneList();
+  const total = list.length;
+  const slice = list.slice(0, shown + PAGE);
+  shown = slice.length;
+  $("count").textContent = total === 0 ? "No cars match these filters."
+    : `Showing ${shown} of ${total.toLocaleString()} car${total===1?"":"s"}.`;
+  $("list").innerHTML = slice.map(c=>carHTML(c,dropMap)).join("") || '<p class="empty">Nothing here yet — try widening the filters.</p>';
+  $("more").style.display = shown < total ? "" : "none";
+}
+
+function renderWorth(){
+  const now = Date.now()/1000, week = 7*86400;
+  const drops = DATA.price_drops.slice().sort((a,b)=>b.drop-a.drop);
+  const fresh = DATA.cars.filter(c =>
+    (c.status.includes("dap-hud") || c.status.includes("g20")) &&
+    (Math.max(c.first_matched_dap||0, c.first_matched_g20||0) > now - week)
+  );
+  const bayFresh = fresh.filter(isBayArea);
+  let html = "";
+  html += "<h3 style='margin:10px 0 4px;font-size:14px'>Price drops (last 7 days)</h3>";
+  html += drops.length
+    ? `<ul class="panel-list">${drops.slice(0,10).map(d=>`<li>${esc(d.year)} ${esc(d.model)} · ${esc(d.color)} — <b>${money(d.new_price)}</b>, down ${money(d.drop)} from ${money(d.old_price)}</li>`).join("")}</ul>`
+    : `<p class="muted">No price drops in the last 7 days.</p>`;
+  html += "<h3 style='margin:14px 0 4px;font-size:14px'>New DAP + HUD matches (last 7 days)</h3>";
+  html += fresh.length
+    ? `<ul class="panel-list">${fresh.slice(0,10).map(c=>`<li>${esc(c.year)} ${esc(c.model)} · ${esc(c.ext_color)} · <b>${money(c.price)}</b> · ${esc(dealerName(c))}${isBayArea(c)?" · Bay Area":""}</li>`).join("")}</ul>`
+    : `<p class="muted">No new DAP + HUD matches in the last 7 days.${bayFresh.length?"":""}</p>`;
+  if (bayFresh.length) html += `<p class="muted">${bayFresh.length} of the new matches ${bayFresh.length===1?"is":"are"} in the Bay Area.</p>`;
+  $("worth-body").innerHTML = html;
+}
+
+fetch("data.json").then(r=>r.json()).then(d=>{
+  DATA = d;
+  $("updated").textContent = `Last updated ${fmtDT(d.generated_at)} · data refreshes daily after the morning hunt.`;
+  $("health").innerHTML =
+    `<span>Database integrity: <span class="ok">${esc(d.db.integrity)}</span></span>` +
+    `<span>Active listings: <b>${d.db.listings_active.toLocaleString()}</b></span>` +
+    `<span>DAP + HUD matches: <b>${d.counts.matches}</b></span>` +
+    `<span>G20 matches: <b>${d.counts.g20_matches}</b></span>` +
+    `<span>Last watcher run: <b>${fmtDT(d.db.last_run)}</b> (${esc(d.db.last_run_status||"")})</span>`;
+  $("notes").innerHTML =
+    (d.notes||[]).map(n=>`<p>${esc(n)}</p>`).join("") +
+    `<p>Listings are BMW USA certified pre-owned 3 Series, tracked by an automated daily watcher. Prices and availability change — always verify on the dealer listing before acting. Hex swatches are approximations from color names.</p>`;
+  renderTabs(); renderWorth(); render();
+  ["q","sort","maxprice","maxmiles","f-match","f-dap","f-hud","f-msport","f-drop"].forEach(id=>{
+    $(id).addEventListener("input", ()=>{ shown=0; render(); });
+    $(id).addEventListener("change", ()=>{ shown=0; render(); });
+  });
+  $("more").onclick = ()=>render();
+}).catch(err=>{
+  $("updated").textContent = "Could not load data.json — " + err.message;
+});
+</script>
+</body>
+</html>
