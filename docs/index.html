@@ -4,75 +4,106 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BMW CPO 3 Series — DAP + HUD Watch</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231c69d4'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='17' font-weight='bold' fill='white' text-anchor='middle'%3E3%3C/text%3E%3C/svg%3E">
 <style>
-  :root { --blue:#1c69d4; --ink:#111; --mut:#666; --line:#e3e3e3; --green:#0a7a2f; --bg:#f7f7f7; }
+  :root { --blue:#1c69d4; --blue-dark:#1559b8; --ink:#101828; --mut:#667085; --line:#e4e7ec; --green:#0a7a2f; --bg:#f6f7f9; --navy:#0b1e3a; }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); }
-  header { background:#0b1e3a; color:#fff; padding:18px 16px 14px; }
-  header h1 { margin:0 0 4px; font-size:20px; }
-  header p { margin:2px 0; color:#c8d6ea; font-size:13px; }
-  main { max-width:1060px; margin:0 auto; padding:14px 12px 40px; }
-  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
-  .health { font-size:13px; color:var(--mut); display:flex; flex-wrap:wrap; gap:6px 18px; }
-  .health b { color:var(--ink); }
-  .ok { color:var(--green); font-weight:600; }
-  h2 { font-size:16px; margin:4px 0 8px; }
-  .panel-list { margin:0; padding-left:18px; font-size:14px; }
-  .panel-list li { margin:4px 0; }
-  .panel-list a { color:var(--blue); }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); -webkit-font-smoothing:antialiased; }
+  header { background:linear-gradient(135deg,#0b1e3a 0%,#123a6b 100%); color:#fff; }
+  header .wrap { max-width:1060px; margin:0 auto; padding:26px 16px 20px; }
+  .kicker { font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#8fb4e3; margin-bottom:8px; }
+  header h1 { margin:0 0 6px; font-size:24px; letter-spacing:-.01em; }
+  header p { margin:4px 0; color:#c8d6ea; font-size:13.5px; line-height:1.5; max-width:720px; }
+  .updated-pill { display:inline-block; margin-top:10px; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.18); border-radius:999px; padding:4px 11px; font-size:12px; color:#e6eefb; }
+  main { max-width:1060px; margin:0 auto; padding:16px 12px 44px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:14px; box-shadow:0 1px 2px rgba(16,24,40,.05); }
+  .health { display:flex; flex-wrap:wrap; }
+  .stat { flex:1 1 auto; min-width:130px; padding:2px 16px; border-left:1px solid var(--line); }
+  .stat:first-child { padding-left:0; border-left:none; }
+  .stat-label { font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--mut); margin-bottom:2px; }
+  .stat-value { font-size:17px; font-weight:700; color:var(--ink); white-space:nowrap; }
+  .stat-value small { font-size:12px; font-weight:400; color:var(--mut); }
+  .ok { color:var(--green); }
+  h2 { font-size:17px; margin:2px 0 4px; letter-spacing:-.01em; }
+  .panel h3 { font-size:12px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--mut); margin:16px 0 2px; }
+  .panel h3:first-of-type { margin-top:8px; }
   .muted { color:var(--mut); font-size:13px; }
-  .controls { position:sticky; top:0; background:var(--bg); padding:10px 0 8px; z-index:5; }
+  .worth-row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:8px 0; border-top:1px solid #f0f2f5; text-decoration:none; color:inherit; }
+  .worth-row:first-of-type { border-top:none; }
+  .worth-row:hover .worth-title { color:var(--blue); text-decoration:underline; }
+  .worth-title { font-weight:600; font-size:14px; }
+  .worth-dealer { display:block; font-weight:400; font-size:12px; color:var(--mut); margin-top:1px; }
+  .worth-price { font-weight:700; font-size:14px; white-space:nowrap; }
+  .worth-price small { display:block; font-weight:400; font-size:11.5px; color:var(--mut); text-align:right; }
+  .controls { position:sticky; top:8px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px; z-index:5; box-shadow:0 2px 8px rgba(16,24,40,.07); }
   .controls .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-  input[type=search], select { font:inherit; padding:8px 10px; border:1px solid #ccc; border-radius:8px; background:#fff; }
+  input[type=search], select { font:inherit; padding:9px 11px; border:1px solid #d0d5dd; border-radius:8px; background:#fff; color:var(--ink); }
+  input[type=search]:focus, select:focus { outline:2px solid rgba(28,105,212,.35); border-color:var(--blue); }
   input[type=search] { flex:1 1 200px; }
-  .tabs { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
-  .tab { border:1px solid #ccc; background:#fff; border-radius:999px; padding:6px 12px; font:inherit; font-size:13px; cursor:pointer; }
-  .tab.on { background:var(--blue); border-color:var(--blue); color:#fff; }
-  .toggle { display:inline-flex; align-items:center; gap:5px; font-size:13px; background:#fff; border:1px solid #ccc; border-radius:999px; padding:6px 10px; cursor:pointer; user-select:none; }
-  .toggle input { accent-color:var(--blue); }
-  .car { background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px; }
-  .car-top { display:flex; gap:10px; align-items:flex-start; }
-  .swatches { display:flex; flex-direction:column; gap:6px; flex:0 0 auto; }
-  .sw { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--mut); }
-  .dot { width:18px; height:18px; border-radius:50%; border:1px solid #999; flex:0 0 auto; }
+  .tabs { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 8px; }
+  .tab { border:1px solid #d0d5dd; background:#fff; border-radius:999px; padding:6px 13px; font:inherit; font-size:13px; cursor:pointer; color:var(--ink); transition:border-color .12s, background .12s; }
+  .tab:hover { border-color:#9db8e8; }
+  .tab.on { background:var(--blue); border-color:var(--blue); color:#fff; font-weight:600; }
+  .toggle { display:inline-flex; align-items:center; gap:6px; font-size:13px; background:#fff; border:1px solid #d0d5dd; border-radius:999px; padding:6px 11px; cursor:pointer; user-select:none; transition:border-color .12s; }
+  .toggle:hover { border-color:#9db8e8; }
+  .toggle input { accent-color:var(--blue); margin:0; }
+  .car { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; transition:box-shadow .15s, border-color .15s; }
+  .car:hover { box-shadow:0 4px 16px rgba(16,24,40,.10); border-color:#c9d6ea; }
+  .car-top { display:flex; gap:12px; align-items:flex-start; }
+  .swatches { display:flex; flex-direction:column; gap:6px; flex:0 0 auto; padding-top:2px; }
+  .sw { display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--mut); white-space:nowrap; }
+  .dot { width:18px; height:18px; border-radius:50%; border:1px solid rgba(0,0,0,.25); flex:0 0 auto; }
   .car-main { flex:1 1 auto; min-width:0; }
-  .car-title { font-weight:700; font-size:15px; }
+  .car-title { font-weight:700; font-size:16px; letter-spacing:-.01em; }
+  .car-title a { color:inherit; text-decoration:none; }
+  .car-title a:hover { color:var(--blue); text-decoration:underline; }
   .car-sub { color:var(--mut); font-size:13px; margin-top:2px; }
-  .car-price { font-weight:700; font-size:16px; white-space:nowrap; text-align:right; }
-  .car-price .miles { display:block; font-weight:400; font-size:12px; color:var(--mut); }
+  .car-price { font-weight:700; font-size:18px; white-space:nowrap; text-align:right; letter-spacing:-.01em; }
+  .car-price .miles { display:block; font-weight:400; font-size:12px; color:var(--mut); margin-top:2px; }
   .badges { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
-  .badge { font-size:11px; font-weight:700; border-radius:999px; padding:3px 8px; background:#e8f0fe; color:#174ea6; }
-  .badge.match { background:#d9ead3; color:#0a5c1e; }
-  .badge.drop { background:#fce8e6; color:#a50e0e; }
-  .badge.new { background:#fef7e0; color:#7a5a00; }
-  .pkgs { font-size:13px; color:#333; margin-top:8px; line-height:1.45; }
-  details { margin-top:8px; font-size:13px; }
-  details summary { cursor:pointer; color:var(--blue); }
-  details dl { margin:8px 0 0; display:grid; grid-template-columns:130px 1fr; gap:3px 10px; }
+  .badge { font-size:11px; font-weight:700; border-radius:999px; padding:3px 8px; background:#e8f0fe; color:#174ea6; border:1px solid #c2d6f5; }
+  .badge.match { background:#d9ead3; color:#0a5c1e; border-color:#b6dfa8; }
+  .badge.drop { background:#fce8e6; color:#a50e0e; border-color:#f2b8b5; }
+  .badge.new { background:#fef7e0; color:#7a5a00; border-color:#f5df9a; }
+  .pkgs { font-size:13px; color:#344054; margin-top:8px; line-height:1.5; }
+  .pkgs.empty { color:var(--mut); font-style:italic; }
+  details { margin-top:9px; font-size:13px; }
+  details summary { cursor:pointer; color:var(--blue); font-weight:600; }
+  details summary:hover { text-decoration:underline; }
+  details dl { margin:9px 0 0; display:grid; grid-template-columns:130px 1fr; gap:4px 10px; }
   details dt { color:var(--mut); }
   details dd { margin:0; word-break:break-all; }
   details a { color:var(--blue); }
   .empty { text-align:center; color:var(--mut); padding:30px 0; }
-  footer { font-size:12px; color:var(--mut); line-height:1.5; }
+  .btn { border:1px solid #c9d6ea; background:#fff; border-radius:999px; padding:10px 24px; font:inherit; font-size:14px; font-weight:600; color:var(--blue); cursor:pointer; transition:background .12s; }
+  .btn:hover { background:#eef4fd; }
+  footer { font-size:12px; color:var(--mut); line-height:1.6; }
+  footer p { margin:6px 0; }
   footer a { color:var(--blue); }
   @media (max-width:560px) {
-    .car-price { font-size:15px; }
+    header h1 { font-size:20px; }
+    .car-price { font-size:16px; }
     details dl { grid-template-columns:110px 1fr; }
+    .stat { min-width:45%; padding:4px 12px; }
+    .stat:nth-child(odd) { padding-left:0; border-left:none; }
   }
 </style>
 </head>
 <body>
 <header>
-  <h1>BMW CPO 3 Series — DAP + HUD Watch</h1>
-  <p>Certified pre-owned 3 Series nationwide, tracked daily. A car is a <b>match</b> when it has both Driving Assistance Professional (5AU) and a Head-Up Display (6U3/610).</p>
-  <p id="updated">Loading…</p>
+  <div class="wrap">
+    <div class="kicker">BMW USA · Certified Pre-Owned · Daily Watch</div>
+    <h1>BMW CPO 3 Series — DAP + HUD Watch</h1>
+    <p>Certified pre-owned 3 Series nationwide, tracked daily. A car is a <b>match</b> when it has both Driving Assistance Professional (5AU) and a Head-Up Display (6U3/610).</p>
+    <p><span class="updated-pill" id="updated">Loading…</span></p>
+  </div>
 </header>
 <main>
   <div class="card">
     <div class="health" id="health"></div>
   </div>
 
-  <div class="card" id="worth">
+  <div class="card panel" id="worth">
     <h2>Worth knowing</h2>
     <div id="worth-body"><p class="muted">Loading…</p></div>
   </div>
@@ -113,7 +144,7 @@
 
   <p class="muted" id="count"></p>
   <div id="list"></div>
-  <p style="text-align:center"><button id="more" class="tab">Show more</button></p>
+  <p style="text-align:center"><button id="more" class="btn">Show more</button></p>
 
   <div class="card">
     <footer id="notes"></footer>
@@ -199,6 +230,24 @@ function goneList(){
   }));
 }
 
+function carTitle(c){
+  // The API's model/trim overlap messily ("330i" / "330i xDrive",
+  // "340i" / "M340i xDrive", "330i xDrive" / "xDrive") — pick the fuller
+  // name instead of concatenating both, and drop junk "NA" tokens.
+  const y = c.year || "";
+  const m = (c.model || "").trim();
+  const t = (c.trim || "").trim();
+  let name = m;
+  if (t && t !== m) {
+    if (m && t.startsWith(m)) name = t;
+    else if (m && m.endsWith(t)) name = m;
+    else if (m && t.includes(m)) name = t;
+    else name = (m ? m + " " : "") + t;
+  }
+  name = name.split(/\s+/).filter(w => w.toUpperCase() !== "NA").join(" ");
+  return `${y} BMW ${name}`.replace(/\s+/g," ").trim();
+}
+
 function carHTML(c, dropMap){
   const drop = dropMap.get(c.vin);
   const badges = [];
@@ -208,25 +257,26 @@ function carHTML(c, dropMap){
   if (drop) badges.push(`<span class="badge drop">Price drop · was ${money(drop.old_price)}</span>`);
   if (c._gone) badges.push('<span class="badge">GONE / DELISTED</span>');
   if (isBayArea(c)) badges.push('<span class="badge">Bay Area</span>');
-  const pkgs = (c.packages||[]).join(" · ") || "No package details listed";
-  const trimPart = (c.trim && c.trim !== c.model) ? " " + c.trim : "";
-  const title = `${c.year||""} BMW ${c.model||""}${trimPart}`.replace(/\s+/g," ").trim();
+  const pkgs = (c.packages||[]).join(" · ");
+  const title = carTitle(c);
+  const sw = [];
+  if (c.ext_color) sw.push(`<span class="sw"><span class="dot" style="background:${esc(c.ext_hex)}"></span>${esc(c.ext_color)}</span>`);
+  if (c.int_color) sw.push(`<span class="sw"><span class="dot" style="background:${esc(c.int_hex)}"></span>${esc(c.int_color)}</span>`);
+  const intRow = c.int_color
+    ? `<dt>Interior</dt><dd>${esc(c.int_color)} (${esc(c.int_hex)})${c.upholstery?` · ${esc(c.upholstery)}`:""}</dd>` : "";
   return `<article class="car">
     <div class="car-top">
-      <div class="swatches">
-        <span class="sw"><span class="dot" style="background:${esc(c.ext_hex)}"></span>${esc(c.ext_color||"—")}</span>
-        <span class="sw"><span class="dot" style="background:${esc(c.int_hex)}"></span>${esc(c.int_color||"—")}</span>
-      </div>
+      <div class="swatches">${sw.join("")}</div>
       <div class="car-main">
-        <div class="car-title">${esc(title)}</div>
+        <div class="car-title"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(title)}</a></div>
         <div class="car-sub">${esc(dealerName(c))}${c.distance!=null?` · ${Math.round(c.distance)} mi away`:""}${c.carfax_1owner?" · 1-owner":""}</div>
         <div class="badges">${badges.join("")}</div>
-        <div class="pkgs">${esc(pkgs)}</div>
+        <div class="pkgs${pkgs?"":" empty"}">${pkgs?esc(pkgs):"No package details listed"}</div>
         <details><summary>Details</summary>
           <dl>
             <dt>VIN</dt><dd>${esc(c.vin)}</dd>
             <dt>Exterior</dt><dd>${esc(c.ext_color||"—")} (${esc(c.ext_hex)})</dd>
-            <dt>Interior</dt><dd>${esc(c.int_color||"—")} (${esc(c.int_hex)})${c.upholstery?` · ${esc(c.upholstery)}`:""}</dd>
+            ${intRow}
             <dt>First seen</dt><dd>${fmtDate(c.first_seen)}</dd>
             <dt>Last seen</dt><dd>${fmtDate(c.last_seen)}</dd>
             <dt>Listing</dt><dd><a href="${esc(c.url)}" target="_blank" rel="noopener">Dealer listing ↗</a></dd>
@@ -252,6 +302,7 @@ function render(){
 
 function renderWorth(){
   const now = Date.now()/1000, week = 7*86400;
+  const byVin = new Map(DATA.cars.map(c=>[c.vin,c]));
   const drops = DATA.price_drops.slice().sort((a,b)=>b.drop-a.drop);
   const fresh = DATA.cars.filter(c =>
     (c.status.includes("dap-hud") || c.status.includes("g20")) &&
@@ -259,14 +310,20 @@ function renderWorth(){
   );
   const bayFresh = fresh.filter(isBayArea);
   let html = "";
-  html += "<h3 style='margin:10px 0 4px;font-size:14px'>Price drops (last 7 days)</h3>";
+  html += "<h3>Price drops (last 7 days)</h3>";
   html += drops.length
-    ? `<ul class="panel-list">${drops.slice(0,10).map(d=>`<li>${esc(d.year)} ${esc(d.model)} · ${esc(d.color)} — <b>${money(d.new_price)}</b>, down ${money(d.drop)} from ${money(d.old_price)}</li>`).join("")}</ul>`
+    ? drops.slice(0,10).map(d=>{
+        const car = byVin.get(d.vin);
+        const href = car && car.url ? ` href="${esc(car.url)}" target="_blank" rel="noopener"` : "";
+        return `<a class="worth-row"${href}><span class="worth-main"><span class="worth-title">${esc(d.year)} ${esc(d.model)} · ${esc(d.color)}</span><span class="worth-dealer">was ${money(d.old_price)} · down ${money(d.drop)}</span></span><span class="worth-price">${money(d.new_price)}</span></a>`;
+      }).join("")
     : `<p class="muted">No price drops in the last 7 days.</p>`;
-  html += "<h3 style='margin:14px 0 4px;font-size:14px'>New DAP + HUD matches (last 7 days)</h3>";
+  html += "<h3>New DAP + HUD matches (last 7 days)</h3>";
   html += fresh.length
-    ? `<ul class="panel-list">${fresh.slice(0,10).map(c=>`<li>${esc(c.year)} ${esc(c.model)} · ${esc(c.ext_color)} · <b>${money(c.price)}</b> · ${esc(dealerName(c))}${isBayArea(c)?" · Bay Area":""}</li>`).join("")}</ul>`
-    : `<p class="muted">No new DAP + HUD matches in the last 7 days.${bayFresh.length?"":""}</p>`;
+    ? fresh.slice(0,10).map(c=>
+        `<a class="worth-row" href="${esc(c.url)}" target="_blank" rel="noopener"><span class="worth-main"><span class="worth-title">${esc(c.year)} ${esc(c.model)} · ${esc(c.ext_color)}</span><span class="worth-dealer">${esc(dealerName(c))}${isBayArea(c)?" · Bay Area":""}</span></span><span class="worth-price">${money(c.price)}</span></a>`
+      ).join("")
+    : `<p class="muted">No new DAP + HUD matches in the last 7 days.</p>`;
   if (bayFresh.length) html += `<p class="muted">${bayFresh.length} of the new matches ${bayFresh.length===1?"is":"are"} in the Bay Area.</p>`;
   $("worth-body").innerHTML = html;
 }
@@ -275,11 +332,11 @@ fetch("data.json").then(r=>r.json()).then(d=>{
   DATA = d;
   $("updated").textContent = `Last updated ${fmtDT(d.generated_at)} · data refreshes daily after the morning hunt.`;
   $("health").innerHTML =
-    `<span>Database integrity: <span class="ok">${esc(d.db.integrity)}</span></span>` +
-    `<span>Active listings: <b>${d.db.listings_active.toLocaleString()}</b></span>` +
-    `<span>DAP + HUD matches: <b>${d.counts.matches}</b></span>` +
-    `<span>G20 matches: <b>${d.counts.g20_matches}</b></span>` +
-    `<span>Last watcher run: <b>${fmtDT(d.db.last_run)}</b> (${esc(d.db.last_run_status||"")})</span>`;
+    `<div class="stat"><div class="stat-label">Database</div><div class="stat-value ok">${esc(d.db.integrity)}</div></div>` +
+    `<div class="stat"><div class="stat-label">Active listings</div><div class="stat-value">${d.db.listings_active.toLocaleString()}</div></div>` +
+    `<div class="stat"><div class="stat-label">DAP + HUD matches</div><div class="stat-value">${d.counts.matches}</div></div>` +
+    `<div class="stat"><div class="stat-label">G20 matches</div><div class="stat-value">${d.counts.g20_matches}</div></div>` +
+    `<div class="stat"><div class="stat-label">Last watcher run</div><div class="stat-value">${fmtDT(d.db.last_run)} <small>(${esc(d.db.last_run_status||"")})</small></div></div>`;
   $("notes").innerHTML =
     (d.notes||[]).map(n=>`<p>${esc(n)}</p>`).join("") +
     `<p>Listings are BMW USA certified pre-owned 3 Series, tracked by an automated daily watcher. Prices and availability change — always verify on the dealer listing before acting. Hex swatches are approximations from color names.</p>`;
