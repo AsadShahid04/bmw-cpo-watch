@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-18T05:27:00+00:00",
+ "generated_at": "2026-11-18T08:21:04+00:00",
  "db": {
   "integrity": "ok",
   "size_mb": 16.4,
@@ -25,22 +25,22 @@
  ],
  "regions": {
   "norcal": {
-   "label": "Northern California (\u2264300 mi from Mountain House)",
-   "matches": 3,
-   "inventory": 71
+   "label": "Northern California (geographic)",
+   "matches": 2,
+   "inventory": 52
   },
   "socal": {
-   "label": "Southern California (301\u2013500 mi)",
-   "matches": 3,
-   "inventory": 99
+   "label": "Southern California (geographic)",
+   "matches": 4,
+   "inventory": 115
   },
   "rest": {
-   "label": "Rest of the US (>500 mi)",
+   "label": "Rest of the US (outside California)",
    "matches": 40,
-   "inventory": 878
+   "inventory": 881
   },
   "unknown": {
-   "label": "Unknown distance",
+   "label": "Unknown region",
    "matches": 0,
    "inventory": 0
   }
@@ -793,7 +793,7 @@
    "miles": 28569,
    "dealer": "22180-01",
    "distance": 285,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://www.valenciabmw.com/catcher.esl?vehicleId=64ea0128ac180c02c60003945098a36b",
    "packages": [
     "Alarm System",
@@ -1007,7 +1007,7 @@
    "miles": 33920,
    "dealer": "21294-01",
    "distance": 380,
-   "region": "socal",
+   "region": "rest",
    "url": "https://www.bmwvegas.com/catcher.esl?vehicleId=83d01c5fac182c8c41cbb75120de614a",
    "packages": [
     "Alarm System",
@@ -1594,7 +1594,7 @@
    "miles": 41489,
    "dealer": "54844-01",
    "distance": 380,
-   "region": "socal",
+   "region": "rest",
    "url": "https://www.bmwhenderson.com/catcher.esl?vehicleId=8b89e2e5ac1856330f17d159334c555b",
    "packages": [
     "Alarm System",
@@ -1914,7 +1914,7 @@
    "miles": 33676,
    "dealer": "04637-01",
    "distance": 297,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://bobsmithbmw.com/inventory/Used-2023-BMW-3_Series-330i_Sedan-3MW69FF04P8D47953",
    "packages": [
     "Alarm System",
@@ -2647,7 +2647,7 @@
    "miles": 32155,
    "dealer": "22180-01",
    "distance": 285,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://www.valenciabmw.com/catcher.esl?vehicleId=9b339dc0ac185c3a4b66caaaa52556c2",
    "packages": [
     "Alarm System",
@@ -2697,7 +2697,7 @@
    "miles": 16421,
    "dealer": "22180-01",
    "distance": 285,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://www.valenciabmw.com/catcher.esl?vehicleId=5fc3ca65ac181f93ade76e577dc53671",
    "packages": [
     "Alarm System",
@@ -3887,7 +3887,7 @@
    "miles": 34649,
    "dealer": "04637-01",
    "distance": 297,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://bobsmithbmw.com/inventory/Used-2024-BMW-3_Series-330i_Sedan-3MW69FF08R8D87116",
    "packages": [
     "Alarm System",
@@ -4579,7 +4579,7 @@
    "miles": 42322,
    "dealer": "86846-01",
    "distance": 291,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://www.rusnakbmw.com/inventory/certified-used-2024-bmw-330i-330i-rwd-sedan-3mw69ff05r8d82648/",
    "packages": [
     "Alarm System",
@@ -5425,7 +5425,7 @@
    "miles": 9769,
    "dealer": "22180-01",
    "distance": 285,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://www.valenciabmw.com/catcher.esl?vehicleId=90aff7aeac18369abc32466926828ba8",
    "packages": [
     "Alarm System",
@@ -5634,7 +5634,7 @@
    "miles": 25392,
    "dealer": "22180-01",
    "distance": 285,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://www.valenciabmw.com/catcher.esl?vehicleId=b786964bac184ff978a9883d2f6e0cd6",
    "packages": [
     "Alarm System",
@@ -11641,7 +11641,7 @@
    "miles": 21057,
    "dealer": "52781-01",
    "distance": 281,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://www.bmwofcamarillo.com/inventory/certified-pre-owned-2024-bmw-3-series-330i-rwd-sedan-3mw69ff03r8e35122/",
    "packages": [
     "Alarm System",
@@ -14321,7 +14321,7 @@
    "miles": 32930,
    "dealer": "04637-01",
    "distance": 297,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://bobsmithbmw.com/inventory/Used-2024-BMW-3_Series-330i_Sedan-3MW69FF05R8D86070",
    "packages": [
     "Alarm System",
@@ -18061,7 +18061,7 @@
    "miles": 12317,
    "dealer": "04637-01",
    "distance": 297,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://bobsmithbmw.com/inventory/Used-2024-BMW-3_Series-330i_Sedan-3MW69FF01R8E02409",
    "packages": [
     "Alarm System",
@@ -24721,7 +24721,7 @@
    "miles": 6062,
    "dealer": "21294-01",
    "distance": 380,
-   "region": "socal",
+   "region": "rest",
    "url": "https://www.bmwvegas.com/catcher.esl?vehicleId=03112d6aac180d50c4c90ee1b881f923",
    "packages": [
     "Alarm System",
@@ -25570,7 +25570,7 @@
    "miles": 15701,
    "dealer": "04637-01",
    "distance": 297,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://bobsmithbmw.com/inventory/Used-2024-BMW-3_Series-330i_Sedan-3MW69FF06R8E33557",
    "packages": [
     "Alarm System",
@@ -26367,7 +26367,7 @@
    "miles": 20963,
    "dealer": "86846-01",
    "distance": 291,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://www.rusnakbmw.com/inventory/certified-used-2024-bmw-330i-rwd-sedan-3mw69ff01r8d87569/",
    "packages": [
     "Alarm System",
@@ -29008,7 +29008,7 @@
    "miles": 3762,
    "dealer": "04637-01",
    "distance": 297,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://bobsmithbmw.com/inventory/Used-2024-BMW-3_Series-330i_xDrive_Sedan-3MW89FF02R8D89095",
    "packages": [
     "Alarm System",
@@ -45901,7 +45901,7 @@
    "miles": 5950,
    "dealer": "52781-01",
    "distance": 281,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://www.bmwofcamarillo.com/inventory/certified-pre-owned-2026-bmw-3-series-330i-na-xdrive-awd-sedan-3mw89cw05t8g06838/",
    "packages": [
     "Alarm System",
@@ -48559,7 +48559,7 @@
    "miles": 28379,
    "dealer": "04637-01",
    "distance": 297,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://bobsmithbmw.com/inventory/Used-2024-BMW-M340i_Sedan-M340i_Sedan-3MW49FS03R8E11223",
    "packages": [
     "Alarm System",
@@ -50476,7 +50476,7 @@
    "miles": 10192,
    "dealer": "04637-01",
    "distance": 297,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://bobsmithbmw.com/inventory/Used-2024-BMW-M340i_Sedan-M340i_Sedan-3MW49FS00R8E54305",
    "packages": [
     "Alarm System",
@@ -52064,7 +52064,7 @@
    "miles": 11061,
    "dealer": "52781-01",
    "distance": 281,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://www.bmwofcamarillo.com/inventory/vdp_url_custom_type-2025-bmw-3-series-m340i-rwd-sedan-3mw59ft01s8f49481/",
    "packages": [
     "Alarm System",
@@ -52115,7 +52115,7 @@
    "miles": 12550,
    "dealer": "86846-01",
    "distance": 291,
-   "region": "norcal",
+   "region": "socal",
    "url": "https://www.rusnakbmw.com/inventory/certified-used-2025-bmw-m340i-m340i-rwd-sedan-3mw59ft08s8f37683/",
    "packages": [
     "Alarm System",
@@ -56525,7 +56525,7 @@
  ],
  "notes": [
   "Hex swatches are best-effort approximations from BMW color names (the API returns names, not hex).",
-  "Region is by dealer distance from Mountain House, CA (95391): NorCal \u2264300 mi, SoCal 301\u2013500 mi, rest >500 mi.",
+  "Region is geographic: NorCal is north of the Central Coast line (Monterey/San Luis Obispo county line, ~35.8N); SoCal is south of it; rest is outside California.",
   "Status 'new' means first seen after the Nov 16 baseline (the DB was first built Nov 15\u201316, so early cars are not flagged new).",
   "On 8 older cars, code 6U3 is described as 'Live Cockpit Pro (incl. Navi)' and does not guarantee a HUD \u2014 check the window sticker."
  ]
