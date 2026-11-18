@@ -6,7 +6,37 @@
 <title>BMW CPO 3 Series — DAP + HUD Watch</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231c69d4'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='17' font-weight='bold' fill='white' text-anchor='middle'%3E3%3C/text%3E%3C/svg%3E">
 <style>
-  :root { --blue:#1c69d4; --blue-dark:#1559b8; --ink:#101828; --mut:#667085; --line:#e4e7ec; --green:#0a7a2f; --bg:#f6f7f9; --navy:#0b1e3a; }
+  :root {
+    --blue:#1c69d4; --blue-dark:#1559b8; --blue-soft:#9db8e8;
+    --ink:#101828; --mut:#667085; --line:#e4e7ec; --line-soft:#f0f2f5;
+    --green:#0a7a2f; --bg:#f6f7f9; --navy:#0b1e3a;
+    --surface:#ffffff; --input-bg:#ffffff; --input-border:#d0d5dd;
+    --badge-bg:#e8f0fe; --badge-ink:#174ea6; --badge-border:#c2d6f5;
+    --match-bg:#d9ead3; --match-ink:#0a5c1e; --match-border:#b6dfa8;
+    --drop-bg:#fce8e6; --drop-ink:#a50e0e; --drop-border:#f2b8b5;
+    --new-bg:#fef7e0; --new-ink:#7a5a00; --new-border:#f5df9a;
+    --hover-bg:#eef4fd;
+    --shadow:0 1px 2px rgba(16,24,40,.05);
+    --card-shadow:0 2px 8px rgba(16,24,40,.07);
+    --car-shadow:0 4px 16px rgba(16,24,40,.10);
+    color-scheme:light;
+  }
+  html[data-theme="dark"] {
+    --blue:#6ea8fe; --blue-dark:#8ab8ff; --blue-soft:#3a5a8c;
+    --ink:#e8ecf1; --mut:#9aa5b1; --line:#2b333f; --line-soft:#232b36;
+    --green:#7bc98f; --bg:#0e1216;
+    --surface:#171d24; --input-bg:#1e252e; --input-border:#3a4552;
+    --badge-bg:#1d2f4d; --badge-ink:#a8c8f5; --badge-border:#2c4a75;
+    --match-bg:#14301c; --match-ink:#8fd6a4; --match-border:#245c33;
+    --drop-bg:#3d1a1a; --drop-ink:#f5a8a8; --drop-border:#6b2b2b;
+    --new-bg:#3a2f10; --new-ink:#f2d98c; --new-border:#6b5518;
+    --hover-bg:#1e2c40;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+    --card-shadow:0 2px 8px rgba(0,0,0,.4);
+    --car-shadow:0 4px 16px rgba(0,0,0,.45);
+    color-scheme:dark;
+  }
+  [hidden] { display:none !important; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); -webkit-font-smoothing:antialiased; }
   header { background:linear-gradient(135deg,#0b1e3a 0%,#123a6b 100%); color:#fff; }
@@ -16,7 +46,7 @@
   header p { margin:4px 0; color:#c8d6ea; font-size:13.5px; line-height:1.5; max-width:720px; }
   .updated-pill { display:inline-block; margin-top:10px; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.18); border-radius:999px; padding:4px 11px; font-size:12px; color:#e6eefb; }
   main { max-width:1060px; margin:0 auto; padding:16px 12px 44px; }
-  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:14px; box-shadow:0 1px 2px rgba(16,24,40,.05); }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:14px; box-shadow:var(--shadow); }
   .health { display:flex; flex-wrap:wrap; }
   .stat { flex:1 1 auto; min-width:130px; padding:2px 16px; border-left:1px solid var(--line); }
   .stat:first-child { padding-left:0; border-left:none; }
@@ -28,27 +58,27 @@
   .panel h3 { font-size:12px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--mut); margin:16px 0 2px; }
   .panel h3:first-of-type { margin-top:8px; }
   .muted { color:var(--mut); font-size:13px; }
-  .worth-row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:8px 0; border-top:1px solid #f0f2f5; text-decoration:none; color:inherit; }
+  .worth-row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:8px 0; border-top:1px solid var(--line-soft); text-decoration:none; color:inherit; }
   .worth-row:first-of-type { border-top:none; }
   .worth-row:hover .worth-title { color:var(--blue); text-decoration:underline; }
   .worth-title { font-weight:600; font-size:14px; }
   .worth-dealer { display:block; font-weight:400; font-size:12px; color:var(--mut); margin-top:1px; }
   .worth-price { font-weight:700; font-size:14px; white-space:nowrap; }
   .worth-price small { display:block; font-weight:400; font-size:11.5px; color:var(--mut); text-align:right; }
-  .controls { position:sticky; top:8px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px; z-index:5; box-shadow:0 2px 8px rgba(16,24,40,.07); }
+  .controls { position:sticky; top:8px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px; z-index:5; box-shadow:var(--card-shadow); }
   .controls .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-  input[type=search], select { font:inherit; padding:9px 11px; border:1px solid #d0d5dd; border-radius:8px; background:#fff; color:var(--ink); }
+  input[type=search], select { font:inherit; padding:10px 12px; min-height:44px; border:1px solid var(--input-border); border-radius:8px; background:var(--input-bg); color:var(--ink); }
   input[type=search]:focus, select:focus { outline:2px solid rgba(28,105,212,.35); border-color:var(--blue); }
   input[type=search] { flex:1 1 200px; }
   .tabs { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 8px; }
-  .tab { border:1px solid #d0d5dd; background:#fff; border-radius:999px; padding:6px 13px; font:inherit; font-size:13px; cursor:pointer; color:var(--ink); transition:border-color .12s, background .12s; }
-  .tab:hover { border-color:#9db8e8; }
+  .tab { border:1px solid var(--input-border); background:var(--surface); border-radius:999px; padding:8px 15px; font:inherit; font-size:13px; cursor:pointer; color:var(--ink); transition:border-color .12s, background .12s; }
+  .tab:hover { border-color:var(--blue-soft); }
   .tab.on { background:var(--blue); border-color:var(--blue); color:#fff; font-weight:600; }
-  .toggle { display:inline-flex; align-items:center; gap:6px; font-size:13px; background:#fff; border:1px solid #d0d5dd; border-radius:999px; padding:6px 11px; cursor:pointer; user-select:none; transition:border-color .12s; }
-  .toggle:hover { border-color:#9db8e8; }
-  .toggle input { accent-color:var(--blue); margin:0; }
-  .car { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; transition:box-shadow .15s, border-color .15s; }
-  .car:hover { box-shadow:0 4px 16px rgba(16,24,40,.10); border-color:#c9d6ea; }
+  .toggle { display:inline-flex; align-items:center; gap:8px; font-size:14px; background:var(--surface); border:1px solid var(--input-border); border-radius:999px; padding:10px 16px; min-height:40px; cursor:pointer; user-select:none; transition:border-color .12s; }
+  .toggle:hover { border-color:var(--blue-soft); }
+  .toggle input { accent-color:var(--blue); margin:0; width:16px; height:16px; }
+  .car { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; transition:box-shadow .15s, border-color .15s; }
+  .car:hover { box-shadow:var(--car-shadow); border-color:var(--blue-soft); }
   .car-top { display:flex; gap:12px; align-items:flex-start; }
   .swatches { display:flex; flex-direction:column; gap:6px; flex:0 0 auto; padding-top:2px; }
   .sw { display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--mut); white-space:nowrap; }
@@ -61,11 +91,11 @@
   .car-price { font-weight:700; font-size:18px; white-space:nowrap; text-align:right; letter-spacing:-.01em; }
   .car-price .miles { display:block; font-weight:400; font-size:12px; color:var(--mut); margin-top:2px; }
   .badges { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
-  .badge { font-size:11px; font-weight:700; border-radius:999px; padding:3px 8px; background:#e8f0fe; color:#174ea6; border:1px solid #c2d6f5; }
-  .badge.match { background:#d9ead3; color:#0a5c1e; border-color:#b6dfa8; }
-  .badge.drop { background:#fce8e6; color:#a50e0e; border-color:#f2b8b5; }
-  .badge.new { background:#fef7e0; color:#7a5a00; border-color:#f5df9a; }
-  .pkgs { font-size:13px; color:#344054; margin-top:8px; line-height:1.5; }
+  .badge { font-size:11px; font-weight:700; border-radius:999px; padding:3px 8px; background:var(--badge-bg); color:var(--badge-ink); border:1px solid var(--badge-border); }
+  .badge.match { background:var(--match-bg); color:var(--match-ink); border-color:var(--match-border); }
+  .badge.drop { background:var(--drop-bg); color:var(--drop-ink); border-color:var(--drop-border); }
+  .badge.new { background:var(--new-bg); color:var(--new-ink); border-color:var(--new-border); }
+  .pkgs { font-size:13px; color:var(--ink); margin-top:8px; line-height:1.5; }
   .pkgs.empty { color:var(--mut); font-style:italic; }
   details { margin-top:9px; font-size:13px; }
   details summary { cursor:pointer; color:var(--blue); font-weight:600; }
@@ -75,11 +105,17 @@
   details dd { margin:0; word-break:break-all; }
   details a { color:var(--blue); }
   .empty { text-align:center; color:var(--mut); padding:30px 0; }
-  .btn { border:1px solid #c9d6ea; background:#fff; border-radius:999px; padding:10px 24px; font:inherit; font-size:14px; font-weight:600; color:var(--blue); cursor:pointer; transition:background .12s; }
-  .btn:hover { background:#eef4fd; }
+  .btn { border:1px solid var(--input-border); background:var(--surface); border-radius:999px; padding:10px 24px; font:inherit; font-size:14px; font-weight:600; color:var(--blue); cursor:pointer; transition:background .12s; }
+  .btn:hover { background:var(--hover-bg); }
   footer { font-size:12px; color:var(--mut); line-height:1.6; }
   footer p { margin:6px 0; }
   footer a { color:var(--blue); }
+  .theme-btn { margin-left:auto; display:inline-flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--input-border); color:var(--ink); border-radius:999px; padding:10px 14px; min-height:44px; font:inherit; font-size:13.5px; font-weight:600; cursor:pointer; }
+  .theme-btn:hover { border-color:var(--blue-soft); }
+  .theme-btn svg { display:block; }
+  .filter-meta { margin-top:10px; }
+  .link-btn { border:none; background:none; color:var(--blue); font:inherit; font-size:13px; font-weight:600; cursor:pointer; padding:4px 2px; }
+  .link-btn:hover { text-decoration:underline; }
   @media (max-width:560px) {
     header h1 { font-size:20px; }
     .car-price { font-size:16px; }
@@ -88,6 +124,9 @@
     .stat:nth-child(odd) { padding-left:0; border-left:none; }
   }
 </style>
+<script>
+(function(){try{var s=localStorage.getItem("bmw-cpo-theme");var t=s||(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.setAttribute("data-theme",t);}catch(e){}})();
+</script>
 </head>
 <body>
 <header>
@@ -131,6 +170,7 @@
         <option value="40000">Up to 40k mi</option>
         <option value="50000">Up to 50k mi</option>
       </select>
+      <button id="theme-toggle" class="theme-btn" aria-label="Switch to dark mode"><span id="theme-icon"></span><span id="theme-label">Dark</span></button>
     </div>
     <div class="tabs" id="tabs"></div>
     <div class="row">
@@ -139,6 +179,10 @@
       <label class="toggle"><input type="checkbox" id="f-hud"> Head-Up Display</label>
       <label class="toggle"><input type="checkbox" id="f-msport"> M Sport</label>
       <label class="toggle"><input type="checkbox" id="f-drop"> Price dropped</label>
+    </div>
+    <div class="row filter-meta" id="filter-meta" hidden>
+      <span class="muted" id="filter-count"></span>
+      <button id="clear-filters" class="link-btn">Clear all filters</button>
     </div>
   </div>
 
@@ -188,7 +232,7 @@ function renderTabs(){
       : (DATA.regions[k] ? DATA.regions[k].inventory : 0);
     return `<button class="tab${tab===k?" on":""}" data-tab="${k}">${label} (${n})</button>`;
   }).join("");
-  document.querySelectorAll("#tabs .tab").forEach(b => b.onclick = ()=>{ tab=b.dataset.tab; shown=0; renderTabs(); render(); });
+  document.querySelectorAll("#tabs .tab").forEach(b => b.onclick = ()=>{ tab=b.dataset.tab; shown=0; renderTabs(); render(); updateFilterState(); });
 }
 
 function filtered(){
@@ -288,6 +332,21 @@ function carHTML(c, dropMap){
   </article>`;
 }
 
+function activeFilterCount(){
+  let n = 0;
+  if ($("q").value.trim()) n++;
+  if ($("sort").value !== "price-asc") n++;
+  if ($("maxprice").value) n++;
+  if ($("maxmiles").value) n++;
+  ["f-match","f-dap","f-hud","f-msport","f-drop"].forEach(id=>{ if ($(id).checked) n++; });
+  if (tab !== "all") n++;
+  return n;
+}
+function updateFilterState(){
+  const n = activeFilterCount();
+  $("filter-meta").hidden = n === 0;
+  $("filter-count").textContent = n ? `${n} filter${n===1?"":"s"} active` : "";
+}
 function render(){
   let {list, dropMap} = filtered();
   if (tab==="gone") list = goneList();
@@ -341,9 +400,29 @@ fetch("data.json").then(r=>r.json()).then(d=>{
     (d.notes||[]).map(n=>`<p>${esc(n)}</p>`).join("") +
     `<p>Listings are BMW USA certified pre-owned 3 Series, tracked by an automated daily watcher. Prices and availability change — always verify on the dealer listing before acting. Hex swatches are approximations from color names.</p>`;
   renderTabs(); renderWorth(); render();
+  $("clear-filters").onclick = ()=>{
+    $("q").value = ""; $("sort").value = "price-asc"; $("maxprice").value = ""; $("maxmiles").value = "";
+    ["f-match","f-dap","f-hud","f-msport","f-drop"].forEach(id=>{ $(id).checked = false; });
+    tab = "all"; shown = 0; renderTabs(); render(); updateFilterState();
+  };
+  const MOON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  const SUN = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
+  function updateThemeBtn(){
+    const dark = document.documentElement.getAttribute("data-theme") === "dark";
+    $("theme-icon").innerHTML = dark ? SUN : MOON;
+    $("theme-label").textContent = dark ? "Light" : "Dark";
+    $("theme-toggle").setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+  }
+  $("theme-toggle").onclick = ()=>{
+    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("bmw-cpo-theme", next); } catch(e){}
+    updateThemeBtn();
+  };
+  updateThemeBtn(); updateFilterState();
   ["q","sort","maxprice","maxmiles","f-match","f-dap","f-hud","f-msport","f-drop"].forEach(id=>{
-    $(id).addEventListener("input", ()=>{ shown=0; render(); });
-    $(id).addEventListener("change", ()=>{ shown=0; render(); });
+    $(id).addEventListener("input", ()=>{ shown=0; render(); updateFilterState(); });
+    $(id).addEventListener("change", ()=>{ shown=0; render(); updateFilterState(); });
   });
   $("more").onclick = ()=>render();
 }).catch(err=>{
