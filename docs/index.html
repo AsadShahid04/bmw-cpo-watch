@@ -301,7 +301,10 @@ function carHTML(c, dropMap){
   if (drop) badges.push(`<span class="badge drop">Price drop · was ${money(drop.old_price)}</span>`);
   if (c._gone) badges.push('<span class="badge">GONE / DELISTED</span>');
   if (isBayArea(c)) badges.push('<span class="badge">Bay Area</span>');
-  const pkgs = (c.packages||[]).join(" · ");
+  const pkgs = (c.packages||[]).map(p=>{
+    const e = esc(p);
+    return (p === "Driving Assistance Professional" || p.indexOf("Head-Up Display") === 0) ? `<strong>${e}</strong>` : e;
+  }).join(" · ");
   const title = carTitle(c);
   const sw = [];
   if (c.ext_color) sw.push(`<span class="sw"><span class="dot" style="background:${esc(c.ext_hex)}"></span>${esc(c.ext_color)}</span>`);
@@ -315,7 +318,7 @@ function carHTML(c, dropMap){
         <div class="car-title"><a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(title)}</a></div>
         <div class="car-sub">${esc(dealerName(c))}${c.distance!=null?` · ${Math.round(c.distance)} mi away`:""}${c.carfax_1owner?" · 1-owner":""}</div>
         <div class="badges">${badges.join("")}</div>
-        <div class="pkgs${pkgs?"":" empty"}">${pkgs?esc(pkgs):"No package details listed"}</div>
+        <div class="pkgs${pkgs?"":" empty"}">${pkgs?pkgs:"No package details listed"}</div>
         <details><summary>Details</summary>
           <dl>
             <dt>VIN</dt><dd>${esc(c.vin)}</dd>
@@ -335,7 +338,6 @@ function carHTML(c, dropMap){
 function activeFilterCount(){
   let n = 0;
   if ($("q").value.trim()) n++;
-  if ($("sort").value !== "price-asc") n++;
   if ($("maxprice").value) n++;
   if ($("maxmiles").value) n++;
   ["f-match","f-dap","f-hud","f-msport","f-drop"].forEach(id=>{ if ($(id).checked) n++; });
